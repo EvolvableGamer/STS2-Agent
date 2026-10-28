@@ -757,6 +757,7 @@ internal static class TestRunner
         yield return ("GameTaskBounding.AllSites", () => Task.Run(GameTaskBoundingContractTests.EveryGameTaskAwaitIsBounded));
         yield return ("GameTaskBounding.Observer", () => Task.Run(GameTaskBoundingContractTests.TheBackgroundObserverStaysUnbounded));
         yield return ("GameTaskBounding.TaskHandedBack", () => Task.Run(GameTaskBoundingContractTests.TheBoundedWaitHandsTheTaskBackForObservation));
+        yield return ("EventOptionTransition.OldPageBeforeDispatch", () => Task.Run(EventOptionTransitionWiringTests.CapturesOldPageBeforeDispatch));
         yield return ("EventOptionLocalization.DynamicVars", () => Task.Run(EventOptionLocalizationTests.AddsEventVariablesBeforeFormatting));
         yield return ("EventOptionLocalization.Null", () => Task.Run(EventOptionLocalizationTests.MissingLocStringReturnsEmpty));
         yield return ("EventOptionLocalization.Signature", () => Task.Run(EventOptionLocalizationTests.FormatsSignatureFieldsWithEventVariables));

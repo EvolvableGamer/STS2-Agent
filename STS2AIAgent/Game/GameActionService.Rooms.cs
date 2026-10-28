@@ -520,11 +520,16 @@ internal static partial class GameActionService
             });
         }
 
+        // Choosing an option may synchronously replace the current page and its options.
+        // Capture the page before dispatch so the wait compares against the old state.
+        var previousEventId = eventModel.Id?.Entry;
+        var previousOptionSignature = BuildEventOptionSignature(eventModel);
+        var previousOptionCount = options.Count;
         RunManager.Instance.EventSynchronizer.ChooseLocalOption(request.option_index.Value);
         var stableOption = await WaitForEventOptionTransitionAsync(
-            eventModel.Id?.Entry,
-            BuildEventOptionSignature(eventModel),
-            options.Count,
+            previousEventId,
+            previousOptionSignature,
+            previousOptionCount,
             TimeSpan.FromSeconds(10));
 
         return new ActionResponsePayload
