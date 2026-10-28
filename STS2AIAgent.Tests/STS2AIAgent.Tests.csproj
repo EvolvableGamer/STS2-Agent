@@ -142,6 +142,8 @@
     <Compile Include="..\STS2AIAgent\Game\ActionExecutionGate.cs" Link="Game\ActionExecutionGate.cs" />
     <Compile Include="..\STS2AIAgent\Game\CardUpgradePreviewPolicy.cs" Link="Game\CardUpgradePreviewPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Game\ArenaRewardExitPolicy.cs" Link="Game\ArenaRewardExitPolicy.cs" />
+    <Compile Include="..\STS2AIAgent\Game\ArenaUnlockPolicy.cs" Link="Game\ArenaUnlockPolicy.cs" />
+    <Compile Include="..\STS2AIAgent\Game\ArenaInputPolicy.cs" Link="Game\ArenaInputPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Game\ArenaSeedPolicy.cs" Link="Game\ArenaSeedPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Server\ArenaTerminalPolicy.cs" Link="Server\ArenaTerminalPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Server\ArenaControlledActions.cs" Link="Server\ArenaControlledActions.cs" />

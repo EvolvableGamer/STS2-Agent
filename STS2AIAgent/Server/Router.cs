@@ -548,6 +548,7 @@ internal static class Router
                 var modifiers=modifiersElement.EnumerateArray().Select(x=>x.ValueKind==JsonValueKind.String?x.GetString()!:throw new ApiException(400,"invalid_request","Modifier IDs must be strings.")).ToArray();
                 var binding=ArenaControlledSession.PrepareStart(body.command_id,seed,task);
                 var fact=await ArenaControlledSession.Actions.StartAsync(body.command_id,task,async () => await GameThread.InvokeAsync(async () => {
+                    ArenaWindowInputObserver.Attach();
                     var setup=await GameActionService.ConfigureArenaCustomAsync(character,ascension);
                     var gameBuild=ReleaseInfoManager.Instance.ReleaseInfo?.Version??"unknown";
                     if(mode!="custom"||setup.mode!=mode||setup.character_id!=character||setup.ascension!=ascension||profile!=$"profile-{setup.native_profile_id}"||gameBuild!=build||!setup.modifiers.SequenceEqual(modifiers))
@@ -575,6 +576,7 @@ internal static class Router
                 var body = await ReadJsonBodyAsync<ArenaControlledBindRequest>(request,cancellationToken);
                 var actual = await GameThread.InvokeAsync(() => GameStateService.BuildStatePayload().run_id);
                 var binding = ArenaControlledSession.Bind(body?.stream_id,body?.game_run_ref,actual);
+                await GameThread.InvokeAsync(ArenaWindowInputObserver.Attach);
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=binding});statusCode=200;return;
             }
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/facts")
@@ -621,6 +623,11 @@ internal static class Router
                     return result.status;
                 });
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {status,result,coverage="bridge_confirmed_only"}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/dev/unlock-custom")
+            {
+                var result=await GameThread.InvokeAsync(GameActionService.UnlockArenaCustomForTest);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=result});statusCode=200;return;
             }
             if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/open-custom")
             {

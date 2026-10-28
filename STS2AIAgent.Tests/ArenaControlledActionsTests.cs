@@ -2,6 +2,15 @@ using STS2AIAgent.Server;
 namespace STS2AIAgent.Tests;
 internal static class ArenaControlledActionsTests
 {
+ public static async Task ExternalInputDuringStartIsRecordedAndStopsActions()
+ {
+  var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);
+  try {using var actions=new ArenaControlledActions(dir,"stream","run");
+   await actions.StartAsync("start",new {},()=>{actions.RecordExternalInput("mouse_button");return Task.FromResult<object>(new {});});
+   var facts=actions.ReadFacts(0);Assert.Equal("started",facts[0].kind);Assert.Equal("incident",facts[1].kind);
+   try {await actions.ExecuteAsync("a1","end_turn",new {},()=>Task.FromResult("completed"));throw new Exception("input incident ignored");}catch(InvalidOperationException){}
+  } finally {Directory.Delete(dir,true);}
+ }
  public static async Task StartIsDurableAndCannotReplay()
  {
   var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);

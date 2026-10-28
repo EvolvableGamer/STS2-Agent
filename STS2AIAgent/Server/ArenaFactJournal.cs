@@ -6,6 +6,7 @@ internal sealed record ArenaFact(string stream_id,long source_seq,string game_ru
 internal sealed class ArenaFactJournal : IDisposable
 {
  private readonly FileStream _file;
+ private readonly object _gate=new();
  private readonly List<ArenaFact> _facts = new();
  private readonly string _stream, _run;
  private bool _poisoned;
@@ -26,20 +27,32 @@ internal sealed class ArenaFactJournal : IDisposable
    _file.Seek(0,SeekOrigin.End);
   } catch {_file.Dispose();throw;}
  }
- public long LastSequence => _facts.Count;
+ public long LastSequence {get {lock(_gate)return _facts.Count;}}
  public ArenaFact Append(string kind,object payload)
- {
+ { lock(_gate) {
   if(_poisoned)throw new InvalidOperationException("Fact journal is poisoned");
   if(string.IsNullOrWhiteSpace(kind))throw new ArgumentException("Missing fact kind");
   var fact=new ArenaFact(_stream,_facts.Count+1,_run,kind,JsonSerializer.SerializeToElement(payload));
   var bytes=Encoding.UTF8.GetBytes(JsonSerializer.Serialize(fact)+"\n");
   try {_file.Write(bytes);_file.Flush(true);} catch {_poisoned=true;throw;}
   _facts.Add(fact);return fact;
+ }}
+ public ArenaFact AppendTerminal(string outcome,int floor)
+ {
+  lock(_gate) return Append("terminal",new {outcome,floor,source_high_watermark=_facts.Count+1,coverage="bridge_confirmed_only",complete=false});
+ }
+ public bool AppendObservedInput(string inputKind)
+ {
+  lock(_gate) {
+   if(_facts.Count==0||_facts[0].kind!="started"||_facts[^1].kind=="terminal")return false;
+   Append("progress",new {kind="input_observed",input_kind=inputKind,origin="unattributed",coverage="partial",complete=false});
+   return true;
+  }
  }
  public IReadOnlyList<ArenaFact> ReadAfter(long afterSeq)
- {
+ { lock(_gate) {
   if(afterSeq<0||afterSeq>_facts.Count)throw new ArgumentOutOfRangeException(nameof(afterSeq));
   return _facts.Skip((int)afterSeq).Take(256).ToArray();
- }
- public void Dispose()=>_file.Dispose();
+ }}
+ public void Dispose(){lock(_gate)_file.Dispose();}
 }

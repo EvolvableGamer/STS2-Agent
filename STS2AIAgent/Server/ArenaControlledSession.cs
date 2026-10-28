@@ -30,6 +30,8 @@ internal static class ArenaControlledSession
  internal static bool HasPermit(object? permit)=>ReferenceEquals(permit,ControlledPermit);
  internal static void NoteBypass()=>Interlocked.Exchange(ref _bypassAttempt,1);
  internal static bool HasBypass=>Volatile.Read(ref _bypassAttempt)!=0;
+ internal static void RecordExternalInput(string kind)=>_actions?.RecordExternalInput(kind);
+ internal static void NoteInputFailure()=>Interlocked.Exchange(ref _bypassAttempt,1);
  private static readonly object Gate=new();
  private static ArenaControlledActions? _actions;
  private static string? _stream,_run;

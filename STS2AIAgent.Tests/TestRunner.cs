@@ -1058,6 +1058,9 @@ internal static class TestRunner
         yield return ("LiveReasoning.NoDuplicateBubble", () => Task.Run(LiveReasoningWiringTests.TheStreamedBubbleIsClearedBeforeTheRecordedOne));
         yield return ("LiveReasoning.OverlayGatedByTheSwitch", () => Task.Run(LiveReasoningWiringTests.TheOverlayDrawsThePartialOnlyWhenThinkingIsShown));
         yield return ("LiveReasoning.NotPersisted", () => Task.Run(LiveReasoningWiringTests.ThePartialStaysOutOfEverythingPersisted));
+        yield return ("ArenaUnlock.IsolatedOnly", () => Task.Run(ArenaUnlockPolicyTests.OnlyExactIsolatedProfileAndOptInAreAccepted));
+        yield return ("ArenaInput.Policy", () => Task.Run(ArenaInputPolicyTests.OnlyRecordsPressesWithoutKeyRepeat));
+        yield return ("ArenaInput.DuringStart", ArenaControlledActionsTests.ExternalInputDuringStartIsRecordedAndStopsActions);
         yield return ("ArenaStart.Durable", ArenaControlledActionsTests.StartIsDurableAndCannotReplay);
         yield return ("ArenaStart.First", () => Task.Run(ArenaControlledActionsTests.StartedMustBeFirst));
         yield return ("ArenaTerminal.FinalSequence", () => Task.Run(ArenaControlledActionsTests.TerminalIsSequencedAndFinal));
@@ -1066,6 +1069,9 @@ internal static class TestRunner
         yield return ("ArenaSeed.Validation", () => Task.Run(ArenaSeedPolicyTests.RejectsBlankOrOversize));
         yield return ("ArenaActions.UnresolvedRestart", ArenaControlledActionsTests.UnresolvedSurvivesRestart);
         yield return ("ArenaActions.PersistBeforeDispatch", ArenaControlledActionsTests.PersistsRequestBeforeDispatchAndRejectsReplay);
+        yield return ("ArenaFacts.AtomicTerminal", ArenaFactJournalTests.TerminalWatermarkIsAtomic);
+        yield return ("ArenaFacts.InputBoundary", () => Task.Run(ArenaFactJournalTests.ObservedInputRequiresStartAndStopsAfterTerminal));
+        yield return ("ArenaFacts.Concurrent", ArenaFactJournalTests.ConcurrentAppendsRemainContiguous);
         yield return ("ArenaFacts.Binding", () => Task.Run(ArenaFactJournalTests.RejectsWrongBinding));
         yield return ("ArenaFacts.IncompleteTail", () => Task.Run(ArenaFactJournalTests.RejectsIncompleteTail));
         yield return ("ArenaFacts.Reopens", () => Task.Run(ArenaFactJournalTests.ReopensAndReadsAfterCursor));

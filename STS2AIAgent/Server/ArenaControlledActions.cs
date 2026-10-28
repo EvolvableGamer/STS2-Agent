@@ -5,6 +5,9 @@ internal sealed class ArenaControlledActions : IDisposable
 {
  private readonly ArenaFactJournal _requests, _facts;
  private readonly SemaphoreSlim _gate = new(1,1);
+ private readonly object _observationGate=new();
+ private bool _pendingInput;
+ private int _inputIncident;
  private readonly HashSet<string> _ids = new(StringComparer.Ordinal);
  private readonly Dictionary<string,string> _statuses = new(StringComparer.Ordinal);
  private bool _unresolved, _terminal;
@@ -16,9 +19,10 @@ internal sealed class ArenaControlledActions : IDisposable
   try {_facts=new ArenaFactJournal(Path.Combine(directory,"facts.jsonl"),stream,run);}
   catch {_requests.Dispose();throw;}
   long factCursor=0;
-  while(true) {var page=_facts.ReadAfter(factCursor);if(page.Count==0)break;foreach(var fact in page) {if(_terminal)throw new InvalidDataException("Facts after terminal");if(fact.kind=="terminal"){_terminal=true;_terminalFact=fact;}factCursor=fact.source_seq;}}
+  while(true) {var page=_facts.ReadAfter(factCursor);if(page.Count==0)break;foreach(var fact in page) {if(_terminal)throw new InvalidDataException("Facts after terminal");if(fact.kind=="terminal"){_terminal=true;_terminalFact=fact;}if(fact.kind=="incident")_inputIncident=1;factCursor=fact.source_seq;}}
   long cursor=0;
   while(true) { var page=_requests.ReadAfter(cursor); if(page.Count==0)break; foreach(var record in page) {
+   if(record.kind=="input_observed"){_inputIncident=1;cursor=record.source_seq;continue;}
    var id=record.payload.GetProperty("action_id").GetString() ?? throw new InvalidDataException("Missing action id");
    if(record.kind=="requested") {if(!_ids.Add(id)||_unresolved)throw new InvalidDataException("Invalid request history");_statuses[id]="unknown";_unresolved=true;}
    else if(record.kind=="resolved") {if(!_unresolved||!_ids.Contains(id))throw new InvalidDataException("Invalid resolution history");_statuses[id]="completed";_unresolved=false;}
@@ -31,10 +35,14 @@ internal sealed class ArenaControlledActions : IDisposable
   if(string.IsNullOrWhiteSpace(id)||id.Length>128)throw new ArgumentException("Invalid start ID");
   await _gate.WaitAsync();
   try {
-   if(_facts.LastSequence!=0||_terminal||_unresolved||_ids.Contains(id))throw new InvalidOperationException("Start already attempted");
+   if(_facts.LastSequence!=0||_terminal||_unresolved||Volatile.Read(ref _inputIncident)!=0||_ids.Contains(id))throw new InvalidOperationException("Start already attempted");
    _requests.Append("requested",new {action_id=id,action="start_task",request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
    var actual=await dispatch();
-   var fact=_facts.Append("started",new {actual_conditions=actual,coverage="bridge_confirmed_only",complete=false});
+   ArenaFact fact;
+   lock(_observationGate) {
+    fact=_facts.Append("started",new {actual_conditions=actual,coverage="bridge_confirmed_only",complete=false});
+    if(_pendingInput){_facts.Append("incident",new {code="external_input_during_start",coverage="partial",complete=false});_pendingInput=false;}
+   }
    _requests.Append("resolved",new {action_id=id,status="completed"});_statuses[id]="completed";_unresolved=false;
    return fact;
   } finally {_gate.Release();}
@@ -44,7 +52,7 @@ internal sealed class ArenaControlledActions : IDisposable
   if(string.IsNullOrWhiteSpace(id)||id.Length>128||string.IsNullOrWhiteSpace(action))throw new ArgumentException("Missing action id or action");
   await _gate.WaitAsync();
   try {
-   if(_terminal||_unresolved||_ids.Contains(id))throw new InvalidOperationException("Unresolved or duplicate action");
+   if(_terminal||_unresolved||Volatile.Read(ref _inputIncident)!=0||_ids.Contains(id))throw new InvalidOperationException("Unresolved or duplicate action");
    _requests.Append("requested",new {action_id=id,action,request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
    var status=await dispatch();
    if(status!="completed")return status;
@@ -70,9 +78,21 @@ internal sealed class ArenaControlledActions : IDisposable
     if(_terminalFact?.payload.GetProperty("outcome").GetString()==outcome && _terminalFact.payload.GetProperty("floor").GetInt32()==floor)return _terminalFact;
     throw new InvalidOperationException("Conflicting terminal");
    }
-   var fact=_facts.Append("terminal",new {outcome,floor,source_high_watermark=_facts.LastSequence+1,coverage="bridge_confirmed_only",complete=false});
-   _terminal=true;_terminalFact=fact;return fact;
+   lock(_observationGate) {
+    var fact=_facts.AppendTerminal(outcome,floor);
+    _terminal=true;_terminalFact=fact;return fact;
+   }
   } finally {_gate.Release();}
+ }
+ public void RecordExternalInput(string kind)
+ {
+  lock(_observationGate) {
+   if(_terminal)return;
+   Interlocked.Exchange(ref _inputIncident,1);
+   _requests.Append("input_observed",new {input_kind=kind});
+   if(_facts.LastSequence==0){_pendingInput=true;return;}
+   _facts.Append("incident",new {code="external_window_input",input_kind=kind,origin="unattributed",coverage="partial",complete=false});
+  }
  }
  public string Query(string id) { _gate.Wait(); try {return _statuses.GetValueOrDefault(id,"not_found");} finally {_gate.Release();} }
  public IReadOnlyList<ArenaFact> ReadFacts(long afterSeq) { _gate.Wait(); try {return _facts.ReadAfter(afterSeq);} finally {_gate.Release();} }
