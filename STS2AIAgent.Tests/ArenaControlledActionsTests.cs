@@ -32,7 +32,8 @@ internal static class ArenaControlledActionsTests
     var fact=actions.Terminal("death",12);Assert.Equal(1L,fact.source_seq);Assert.Equal(12,fact.payload.GetProperty("floor").GetInt32());Assert.Equal(1L,fact.payload.GetProperty("source_high_watermark").GetInt64());
    }
    using(var actions=new ArenaControlledActions(dir,"stream","run")) {
-    try {actions.Terminal("death",12);throw new Exception("duplicate terminal");}catch(InvalidOperationException){}
+    var replay=actions.Terminal("death",12);Assert.Equal(1L,replay.source_seq);Assert.Equal(1,actions.ReadFacts(0).Count);
+    try {actions.Terminal("victory",12);throw new Exception("conflicting terminal");}catch(InvalidOperationException){}
    }
   } finally {Directory.Delete(dir,true);}
  }

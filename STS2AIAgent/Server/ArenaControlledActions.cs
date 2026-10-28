@@ -8,6 +8,7 @@ internal sealed class ArenaControlledActions : IDisposable
  private readonly HashSet<string> _ids = new(StringComparer.Ordinal);
  private readonly Dictionary<string,string> _statuses = new(StringComparer.Ordinal);
  private bool _unresolved, _terminal;
+ private ArenaFact? _terminalFact;
  public ArenaControlledActions(string directory,string stream,string run)
  {
   Directory.CreateDirectory(directory);
@@ -15,7 +16,7 @@ internal sealed class ArenaControlledActions : IDisposable
   try {_facts=new ArenaFactJournal(Path.Combine(directory,"facts.jsonl"),stream,run);}
   catch {_requests.Dispose();throw;}
   long factCursor=0;
-  while(true) {var page=_facts.ReadAfter(factCursor);if(page.Count==0)break;foreach(var fact in page) {if(_terminal)throw new InvalidDataException("Facts after terminal");if(fact.kind=="terminal")_terminal=true;factCursor=fact.source_seq;}}
+  while(true) {var page=_facts.ReadAfter(factCursor);if(page.Count==0)break;foreach(var fact in page) {if(_terminal)throw new InvalidDataException("Facts after terminal");if(fact.kind=="terminal"){_terminal=true;_terminalFact=fact;}factCursor=fact.source_seq;}}
   long cursor=0;
   while(true) { var page=_requests.ReadAfter(cursor); if(page.Count==0)break; foreach(var record in page) {
    var id=record.payload.GetProperty("action_id").GetString() ?? throw new InvalidDataException("Missing action id");
@@ -65,9 +66,12 @@ internal sealed class ArenaControlledActions : IDisposable
   _gate.Wait();
   try {
    if(_unresolved)throw new InvalidOperationException("Action outcome unresolved");
-   if(_terminal)throw new InvalidOperationException("Terminal already recorded");
+   if(_terminal) {
+    if(_terminalFact?.payload.GetProperty("outcome").GetString()==outcome && _terminalFact.payload.GetProperty("floor").GetInt32()==floor)return _terminalFact;
+    throw new InvalidOperationException("Conflicting terminal");
+   }
    var fact=_facts.Append("terminal",new {outcome,floor,source_high_watermark=_facts.LastSequence+1,coverage="bridge_confirmed_only",complete=false});
-   _terminal=true;return fact;
+   _terminal=true;_terminalFact=fact;return fact;
   } finally {_gate.Release();}
  }
  public string Query(string id) { _gate.Wait(); try {return _statuses.GetValueOrDefault(id,"not_found");} finally {_gate.Release();} }
