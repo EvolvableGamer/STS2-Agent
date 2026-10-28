@@ -8,6 +8,9 @@ namespace STS2AIAgent.Game;
 /// </summary>
 internal static class CombatTurnReadinessPolicy
 {
+    internal static bool IsPlayerPlayPhase(bool participatesInTurn, bool nativePlayPhase) =>
+        participatesInTurn && nativePlayPhase;
+
     internal static bool IsLocallyReady(
         int turnNumber,
         int handCount,

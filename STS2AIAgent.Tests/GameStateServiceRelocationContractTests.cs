@@ -150,7 +150,7 @@ internal static class GameStateServiceRelocationContractTests
         ["GetUnplayableReasonCode#2"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "41aec19da04ed61910a5186f1aea8c2b725d2ee2de0a037c136475d8d5e44ae3"),
         ["IsLocalCombatTurnReady"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "0569a1f7fdcf5f22d42f1c53624b211404f2983acbc2830dbc53e9d2be61381b"),
         ["CombatActionGate"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "60e18aea6fded1729ec71943faa42445a5054ce5d49d541e1327ecd629a89817"),
-        ["EvaluateCombatActionGate"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "cd07893ae61e7c0ca0c75799e9290af303ca1afe29b2ae8006625d9bacb5f223"),
+        ["EvaluateCombatActionGate"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "9fadf99ddd7edeee1018405431ee926e1a2720669480fdf411ac8714cde72e04"),
         ["IsCombatActionSnapshotStable"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "719ab4e82888669247f820383b436ace78a58e3b6b3b51a73b9ecedfaf7976d6"),
         ["BuildCombatActionReadinessPayload"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "456c83c5293e7cc36842d198e4c442caf5f8adb51bdbb4ee51de6d295ca34cd4"),
         ["BuildCombatActionReadinessSignature"] = ("STS2AIAgent/Game/GameStateService.Combat.cs", "9907c7517e3c7043c40d4ce211f65eb6f3e5170fd1526b6a07ece364c0931279"),
