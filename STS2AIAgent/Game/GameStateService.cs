@@ -89,7 +89,11 @@ internal static partial class GameStateService
     private static bool _crystalSphereButtonLookupWarningLogged;
 
     private static FieldInfo? StartRunLobbyMaxPlayersField =>
+#if STS2_PUBLIC_23811903
+        ReflectedGameMembers.Field(typeof(StartRunLobby), "<MaxPlayers>k__BackingField");
+#else
         ReflectedGameMembers.Field(typeof(StartRunLobby), "_maxPlayers");
+#endif
 
     public static GameStatePayload BuildStatePayload()
     {
@@ -1377,7 +1381,11 @@ internal static partial class GameStateService
             return Array.Empty<ulong>();
         }
 
+#if STS2_PUBLIC_23811903
+        var connectedPlayerIds = RunManager.Instance.RunLobby?.ConnectedPlayerIds?.ToArray();
+#else
         var connectedPlayerIds = RunManager.Instance.RunLobby?.PlayerIds?.ToArray();
+#endif
         if (connectedPlayerIds != null && connectedPlayerIds.Length > 0)
         {
             return connectedPlayerIds;

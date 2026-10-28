@@ -20,6 +20,12 @@ public static class ModEntry
 
     public static void Initialize()
     {
+#if STS2_PUBLIC_23811903
+        var gameAssembly = typeof(MegaCrit.Sts2.Core.Runs.RunState).Assembly.Location;
+        var actual = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(gameAssembly)));
+        if (!actual.Equals("e7ceb80669bfaf5c8fccabaa126ae2bb283aba514be5b5b55612579cfd285f18", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Arena public compatibility profile requires the validated macOS arm64 build23811903 assembly.");
+#endif
         CompanionStartupFile.Publish("initializing");
         try
         {

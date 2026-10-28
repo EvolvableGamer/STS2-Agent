@@ -75,7 +75,11 @@ internal static class ReflectedGameMembers
         new(typeof(NEndTurnLongPressBar), "_longPressDuration", MemberKind.Field, true, "end_turn long-press detection"),
         new(typeof(NDevConsole), "_devConsole", MemberKind.Field, false, "run_console_command"),
         new(typeof(NMultiplayerSubmenu), "StartLoad", MemberKind.Method, false, "continue_ai_teammate"),
+#if STS2_PUBLIC_23811903
+        new(typeof(StartRunLobby), "<MaxPlayers>k__BackingField", MemberKind.Field, false, "multiplayer_lobby.max_players"),
+#else
         new(typeof(StartRunLobby), "_maxPlayers", MemberKind.Field, false, "multiplayer_lobby.max_players"),
+#endif
         new(typeof(NCrystalSphereScreen), "_entity", MemberKind.Field, false, "crystal sphere actions"),
         new(typeof(NPlayerHand), "_prefs", MemberKind.Field, false, "combat hand selection metadata"),
         new(typeof(NPlayerHand), "_selectedCards", MemberKind.Field, false, "combat hand selection metadata"),

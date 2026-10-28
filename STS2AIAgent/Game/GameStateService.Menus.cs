@@ -1,3 +1,8 @@
+#if STS2_PUBLIC_23811903
+using LobbyPlayerPayloadSource = MegaCrit.Sts2.Core.Entities.Multiplayer.LobbyPlayer;
+#else
+using LobbyPlayerPayloadSource = MegaCrit.Sts2.Core.Multiplayer.Game.Lobby.StartRunLobbyPlayer;
+#endif
 using System.Collections;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -305,7 +310,7 @@ internal static partial class GameStateService
         }
     }
 
-    private static CharacterSelectPlayerPayload BuildCharacterSelectPlayerPayload(StartRunLobbyPlayer player, ulong localPlayerId)
+    private static CharacterSelectPlayerPayload BuildCharacterSelectPlayerPayload(LobbyPlayerPayloadSource player, ulong localPlayerId)
     {
         return new CharacterSelectPlayerPayload
         {

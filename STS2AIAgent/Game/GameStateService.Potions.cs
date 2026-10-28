@@ -109,7 +109,11 @@ internal static partial class GameStateService
         return potion != null &&
             !potion.IsQueued &&
             !potion.Owner.Creature.IsDead &&
+#if STS2_PUBLIC_23811903
+            player.CanRemovePotions;
+#else
             player.CanUseOrRemovePotions;
+#endif
     }
 
     public static bool PotionRequiresTarget(CombatState? combatState, PotionModel potion)
