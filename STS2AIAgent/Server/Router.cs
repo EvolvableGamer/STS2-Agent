@@ -548,7 +548,7 @@ internal static class Router
                 var modifiers=modifiersElement.EnumerateArray().Select(x=>x.ValueKind==JsonValueKind.String?x.GetString()!:throw new ApiException(400,"invalid_request","Modifier IDs must be strings.")).ToArray();
                 var binding=ArenaControlledSession.PrepareStart(body.command_id,seed,task);
                 var fact=await ArenaControlledSession.Actions.StartAsync(body.command_id,task,async () => await GameThread.InvokeAsync(async () => {
-                    var setup=GameActionService.ReadArenaCustomSetup();
+                    var setup=await GameActionService.ConfigureArenaCustomAsync(character,ascension);
                     var gameBuild=ReleaseInfoManager.Instance.ReleaseInfo?.Version??"unknown";
                     if(mode!="custom"||setup.mode!=mode||setup.character_id!=character||setup.ascension!=ascension||profile!=$"profile-{setup.native_profile_id}"||gameBuild!=build||!setup.modifiers.SequenceEqual(modifiers))
                         throw new ApiException(409,"conditions_mismatch","Custom setup does not match task conditions.");
@@ -621,6 +621,11 @@ internal static class Router
                     return result.status;
                 });
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {status,result,coverage="bridge_confirmed_only"}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/open-custom")
+            {
+                var setup=await GameThread.InvokeAsync(GameActionService.OpenArenaCustomAsync);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=setup});statusCode=200;return;
             }
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/custom-setup")
             {

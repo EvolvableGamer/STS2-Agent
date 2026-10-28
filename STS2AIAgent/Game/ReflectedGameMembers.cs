@@ -90,6 +90,7 @@ internal static class ReflectedGameMembers
         new(typeof(CommandLineHelper), "_args", MemberKind.Field, true, "companion launch arguments"),
         new(typeof(NGameOverScreen), "_isAnimatingSummary", MemberKind.Field, false, "game_over.showing_summary"),
         new(typeof(NSingleplayerSubmenu), "_standardButton", MemberKind.Field, false, "continue_run"),
+        new(typeof(NSingleplayerSubmenu), "_customButton", MemberKind.Field, false, "arena custom setup"),
         new(typeof(NPatchNotesScreen), "_backButton", MemberKind.Field, false, "close_main_menu_submenu"),
         new(typeof(NPauseMenu), "_saveAndQuitButton", MemberKind.Field, false, "save_and_quit"),
         new(typeof(NPauseMenu), "CloseToMenu", MemberKind.Method, false, "save_and_quit"),

@@ -72,6 +72,57 @@ namespace STS2AIAgent.Game;
 /// </remarks>
 internal static partial class GameActionService
 {
+    internal static async Task<ArenaCustomSetup> OpenArenaCustomAsync()
+    {
+        using var lease=ActionExecutionGate.Shared.Acquire("arena_open_custom");
+        var current=ActiveScreenContext.Instance.GetCurrentScreen();
+        if(current is NCustomRunScreen)return ReadArenaCustomSetup();
+        NSingleplayerSubmenu? submenu=current as NSingleplayerSubmenu;
+        if(current is NMainMenu main) {
+            submenu=main.SubmenuStack.GetSubmenuType<NSingleplayerSubmenu>();
+            if(submenu==null)throw new ApiException(503,"state_unavailable","Singleplayer submenu unavailable.");
+            main.SubmenuStack.Push(submenu);
+            if(!await WaitForMainMenuSubmenuOpenAsync<NSingleplayerSubmenu>(main,TimeSpan.FromSeconds(5)))
+                throw new ApiException(503,"setup_unknown","Singleplayer submenu did not open.");
+        }
+        if(submenu==null)throw new ApiException(409,"invalid_action","Main menu or singleplayer submenu required.");
+        var button=ReflectedGameMembers.Field(typeof(NSingleplayerSubmenu),"_customButton")?.GetValue(submenu) as NButton;
+        if(button==null||!GodotObject.IsInstanceValid(button)||!button.IsVisibleInTree()||!button.IsEnabled)
+            throw new ApiException(409,"custom_unavailable","Custom mode is unavailable or locked.");
+        button.ForceClick();
+        var deadline=DateTime.UtcNow+TimeSpan.FromSeconds(10);
+        while(DateTime.UtcNow<deadline) {
+            await WaitForNextFrameAsync();
+            if(ActiveScreenContext.Instance.GetCurrentScreen() is NCustomRunScreen)return ReadArenaCustomSetup();
+        }
+        throw new ApiException(503,"setup_unknown","Custom screen did not become available.");
+    }
+    private static IEnumerable<NCharacterSelectButton> ArenaCustomButtons(Node root)
+    {
+        foreach(var child in root.GetChildren()) {
+            if(child is NCharacterSelectButton button)yield return button;
+            foreach(var nested in ArenaCustomButtons(child))yield return nested;
+        }
+    }
+    internal static async Task<ArenaCustomSetup> ConfigureArenaCustomAsync(string characterId,int ascension)
+    {
+        using var lease=ActionExecutionGate.Shared.Acquire("arena_configure_custom");
+        if(ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen)
+            throw new ApiException(409,"invalid_action","Custom-run screen required.");
+        var initial=ReadArenaCustomSetup();
+        if(initial.ascension!=ascension)throw new ApiException(409,"ascension_unavailable","This setup can only use the currently selected ascension.");
+        if(initial.character_id==characterId)return initial;
+        var button=ArenaCustomButtons(screen).FirstOrDefault(x=>GodotObject.IsInstanceValid(x)&&x.Character.Id.Entry==characterId&&!x.IsLocked&&x.IsEnabled&&x.IsVisibleInTree());
+        if(button==null)throw new ApiException(409,"character_unavailable","Requested character is unavailable or locked.");
+        button.Select();
+        var deadline=DateTime.UtcNow+TimeSpan.FromSeconds(5);
+        while(DateTime.UtcNow<deadline) {
+            await WaitForNextFrameAsync();
+            var actual=ReadArenaCustomSetup();
+            if(actual.character_id==characterId&&actual.ascension==ascension)return actual;
+        }
+        throw new ApiException(503,"setup_unknown","Character selection did not settle.");
+    }
     internal static ArenaCustomSetup ReadArenaCustomSetup()
     {
         if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen || screen.Lobby.NetService.Type.IsMultiplayer() || screen.Lobby.GameMode != GameMode.Custom)
