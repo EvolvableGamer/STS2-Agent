@@ -352,7 +352,8 @@ internal static partial class GameStateService
             playerCombatState.TurnNumber,
             playerCombatState.Hand.Cards.Count,
             GameActionService.CardsPlayedThisTurn,
-            IsEndTurnButtonReady(GetEndTurnButton(combatRoom)));
+            IsEndTurnButtonReady(GetEndTurnButton(combatRoom)),
+            CombatManager.Instance.EndingPlayerTurnPhaseOne || CombatManager.Instance.EndingPlayerTurnPhaseTwo);
     }
 
     private static CombatPayload? BuildCombatPayload(CombatState? combatState, CombatActionGate combatActionGate)

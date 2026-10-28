@@ -12,9 +12,11 @@ internal static class CombatTurnReadinessPolicy
         int turnNumber,
         int handCount,
         int cardsPlayedThisTurn,
-        bool nativeEndTurnReady)
+        bool nativeEndTurnReady,
+        bool endingTurn = false)
     {
-        if (turnNumber <= 0)
+        // A newly drawn card is not a decision window while the previous turn is still handing off.
+        if (endingTurn || turnNumber <= 0)
         {
             return false;
         }
