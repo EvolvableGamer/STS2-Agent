@@ -2,6 +2,20 @@ using STS2AIAgent.Server;
 namespace STS2AIAgent.Tests;
 internal static class ArenaControlledActionsTests
 {
+ public static async Task StartIsDurableAndCannotReplay()
+ {
+  var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);
+  try {
+   using(var actions=new ArenaControlledActions(dir,"stream","run")) {
+    var calls=0;await actions.StartAsync("start1",new {seed="run"},async()=>{calls++;Assert.True(new FileInfo(Path.Combine(dir,"requests.jsonl")).Length>0);await Task.Yield();return new {seed="run"};});
+    Assert.Equal(1,calls);Assert.Equal("completed",actions.Query("start1"));Assert.Equal("started",actions.ReadFacts(0)[0].kind);
+   }
+   using(var actions=new ArenaControlledActions(dir,"stream","run")) {
+    Assert.Equal("completed",actions.Query("start1"));
+    try {await actions.StartAsync("start1",new {},()=>Task.FromResult<object>(new {}));throw new Exception("replayed");}catch(InvalidOperationException){}
+   }
+  } finally {Directory.Delete(dir,true);}
+ }
  public static void StartedMustBeFirst()
  {
   var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);

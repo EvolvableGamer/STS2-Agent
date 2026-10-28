@@ -25,6 +25,19 @@ internal sealed class ArenaControlledActions : IDisposable
    cursor=record.source_seq;
   }}
  }
+ public async Task<ArenaFact> StartAsync(string id,object request,Func<Task<object>> dispatch)
+ {
+  if(string.IsNullOrWhiteSpace(id)||id.Length>128)throw new ArgumentException("Invalid start ID");
+  await _gate.WaitAsync();
+  try {
+   if(_facts.LastSequence!=0||_terminal||_unresolved||_ids.Contains(id))throw new InvalidOperationException("Start already attempted");
+   _requests.Append("requested",new {action_id=id,action="start_task",request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
+   var actual=await dispatch();
+   var fact=_facts.Append("started",new {actual_conditions=actual,coverage="bridge_confirmed_only",complete=false});
+   _requests.Append("resolved",new {action_id=id,status="completed"});_statuses[id]="completed";_unresolved=false;
+   return fact;
+  } finally {_gate.Release();}
+ }
  public async Task<string> ExecuteAsync(string id,string action,object request,Func<Task<string>> dispatch)
  {
   if(string.IsNullOrWhiteSpace(id)||id.Length>128||string.IsNullOrWhiteSpace(action))throw new ArgumentException("Missing action id or action");

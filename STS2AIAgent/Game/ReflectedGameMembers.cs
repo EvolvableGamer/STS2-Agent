@@ -7,6 +7,7 @@ using MegaCrit.Sts2.Core.Nodes.Debug;
 using MegaCrit.Sts2.Core.Nodes.Debug.Multiplayer;
 using MegaCrit.Sts2.Core.Nodes.Events.Custom.CrystalSphere;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
+using MegaCrit.Sts2.Core.Nodes.Screens.CustomRun;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.Core.Nodes.Screens.PauseMenu;
 using MegaCrit.Sts2.Core.Nodes.Screens.Timeline.UnlockScreens;
@@ -76,6 +77,7 @@ internal static class ReflectedGameMembers
         new(typeof(NDevConsole), "_devConsole", MemberKind.Field, false, "run_console_command"),
         new(typeof(NMultiplayerSubmenu), "StartLoad", MemberKind.Method, false, "continue_ai_teammate"),
         new(typeof(StartRunLobby), "<MaxPlayers>k__BackingField", MemberKind.Field, false, "multiplayer_lobby.max_players"),
+        new(typeof(NCustomRunScreen), "_confirmButton", MemberKind.Field, false, "arena custom start"),
         new(typeof(NCrystalSphereScreen), "_entity", MemberKind.Field, false, "crystal sphere actions"),
         new(typeof(NPlayerHand), "_prefs", MemberKind.Field, false, "combat hand selection metadata"),
         new(typeof(NPlayerHand), "_selectedCards", MemberKind.Field, false, "combat hand selection metadata"),

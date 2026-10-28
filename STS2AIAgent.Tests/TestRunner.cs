@@ -1058,6 +1058,7 @@ internal static class TestRunner
         yield return ("LiveReasoning.NoDuplicateBubble", () => Task.Run(LiveReasoningWiringTests.TheStreamedBubbleIsClearedBeforeTheRecordedOne));
         yield return ("LiveReasoning.OverlayGatedByTheSwitch", () => Task.Run(LiveReasoningWiringTests.TheOverlayDrawsThePartialOnlyWhenThinkingIsShown));
         yield return ("LiveReasoning.NotPersisted", () => Task.Run(LiveReasoningWiringTests.ThePartialStaysOutOfEverythingPersisted));
+        yield return ("ArenaStart.Durable", ArenaControlledActionsTests.StartIsDurableAndCannotReplay);
         yield return ("ArenaStart.First", () => Task.Run(ArenaControlledActionsTests.StartedMustBeFirst));
         yield return ("ArenaTerminal.FinalSequence", () => Task.Run(ArenaControlledActionsTests.TerminalIsSequencedAndFinal));
         yield return ("ArenaTerminal.NaturalSummary", () => Task.Run(ArenaTerminalPolicyTests.RequiresHistoryAndNaturalSummary));

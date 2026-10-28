@@ -72,14 +72,31 @@ namespace STS2AIAgent.Game;
 /// </remarks>
 internal static partial class GameActionService
 {
-    internal static object ReadArenaCustomSetup()
+    internal static ArenaCustomSetup ReadArenaCustomSetup()
     {
         if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen || screen.Lobby.NetService.Type.IsMultiplayer() || screen.Lobby.GameMode != GameMode.Custom)
             throw new ApiException(409, "invalid_action", "Native singleplayer custom-run screen required.");
         var lobby=screen.Lobby;
-        return new { mode="custom", seed=lobby.Seed, character_id=lobby.LocalPlayer.character?.Id.Entry,
-            ascension=lobby.Ascension, modifiers=lobby.Modifiers.Select(x=>x.Id.Entry).ToArray(),
-            native_profile_id=SaveManager.Instance.CurrentProfileId };
+        return new ArenaCustomSetup("custom", lobby.Seed, lobby.LocalPlayer.character?.Id.Entry, lobby.Ascension, lobby.Modifiers.Select(x=>x.Id.Entry).ToArray(), SaveManager.Instance.CurrentProfileId);
+    }
+    internal static async Task<GameStatePayload> StartArenaCustomAsync(string seed)
+    {
+        using var lease=ActionExecutionGate.Shared.Acquire("arena_start_task");
+        if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen || screen.Lobby.GameMode != GameMode.Custom || screen.Lobby.NetService.Type.IsMultiplayer())
+            throw new ApiException(409,"invalid_action","Native singleplayer custom-run screen required.");
+        var field=ReflectedGameMembers.Field(typeof(NCustomRunScreen),"_confirmButton");
+        if(field?.GetValue(screen) is not NButton button || !GodotObject.IsInstanceValid(button) || !button.IsVisibleInTree() || !button.IsEnabled)
+            throw new ApiException(409,"start_unavailable","Custom-run start button is unavailable.");
+        screen.Lobby.SetSeed(seed);
+        if(screen.Lobby.Seed!=seed)throw new ApiException(409,"seed_mismatch","Game did not accept the requested seed.");
+        button.ForceClick();
+        var deadline=DateTime.UtcNow+TimeSpan.FromSeconds(15);
+        while(DateTime.UtcNow<deadline) {
+            await WaitForNextFrameAsync();
+            var state=GameStateService.BuildStatePayload();
+            if(state.run_id==seed && state.run!=null)return state;
+        }
+        throw new ApiException(503,"start_unknown","Run start did not produce a matching game state before the deadline.");
     }
     internal static string PrepareArenaSeed(string seed)
     {

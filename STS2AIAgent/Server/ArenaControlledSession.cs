@@ -1,12 +1,17 @@
 using STS2AIAgent.Game;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 namespace STS2AIAgent.Server;
+internal sealed record ArenaCustomSetup(string mode,string? seed,string? character_id,int ascension,string[] modifiers,int native_profile_id);
+internal sealed class ArenaStartRequest { public string? command_id {get; init;} public JsonElement task {get; init;} }
 internal sealed class ArenaControlledBindRequest { public string? stream_id { get; init; } public string? game_run_ref { get; init; } }
 internal sealed class ArenaControlledActionRequest { public string? action_id { get; init; } public ActionRequest? request { get; init; } }
 internal static class ArenaControlledSession
 {
  private static readonly HashSet<string> AllowedActions = new(StringComparer.Ordinal) {
   "play_card","end_turn","choose_map_node","choose_event_option","proceed","choose_rest_option",
-  "choose_reward_card","claim_reward","collect_rewards_and_proceed","confirm_selection","select_deck_card",
+  "choose_reward_card","skip_reward_cards","claim_reward","collect_rewards_and_proceed","confirm_selection","select_deck_card",
   "choose_treasure_relic","open_chest","close_shop_inventory","open_shop_inventory","confirm_modal",
   "decline_tutorials","close_cards_view","confirm_unlock","continue_game_over"
  };
@@ -28,6 +33,34 @@ internal static class ArenaControlledSession
  private static readonly object Gate=new();
  private static ArenaControlledActions? _actions;
  private static string? _stream,_run;
+ internal static string StartStream(string commandId)
+ {
+  if(string.IsNullOrWhiteSpace(commandId)||commandId.Length>128)throw new ApiException(400,"invalid_request","Invalid command ID.");
+  return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(commandId)))[..32].ToLowerInvariant();
+ }
+ internal static object PrepareStart(string commandId,string run,JsonElement task)
+ {
+  var stream=StartStream(commandId);
+  if(!ArenaSeedPolicy.IsValid(run))throw new ApiException(400,"invalid_seed","Invalid seed.");
+  var dir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"STS2AIAgent","arena-controlled",stream);
+  Directory.CreateDirectory(dir);
+  var path=Path.Combine(dir,"start-binding.json");
+  var taskHash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(task.GetRawText())));
+  var binding=JsonSerializer.Serialize(new {command_id=commandId,stream_id=stream,game_run_ref=run,task_hash=taskHash});
+  try {using var file=new FileStream(path,FileMode.CreateNew,FileAccess.Write,FileShare.Read);var bytes=Encoding.UTF8.GetBytes(binding);file.Write(bytes);file.Flush(true);}
+  catch(IOException) {if(!File.Exists(path)||File.ReadAllText(path)!=binding)throw new ApiException(409,"start_conflict","Start command binding already exists or differs.");}
+  return Bind(stream,run,run);
+ }
+ internal static object RestoreStart(string commandId)
+ {
+  var stream=StartStream(commandId);
+  var path=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"STS2AIAgent","arena-controlled",stream,"start-binding.json");
+  if(!File.Exists(path))throw new ApiException(404,"start_not_found","Start command not found.");
+  using var doc=JsonDocument.Parse(File.ReadAllText(path));var root=doc.RootElement;
+  if(root.GetProperty("command_id").GetString()!=commandId||root.GetProperty("stream_id").GetString()!=stream)throw new InvalidDataException("Invalid start binding.");
+  var run=root.GetProperty("game_run_ref").GetString()??throw new InvalidDataException("Missing run binding.");
+  return Bind(stream,run,run);
+ }
  internal static object Bind(string? stream,string? run,string actual)
  {
   if(!Guid.TryParseExact(stream,"N",out _)||string.IsNullOrWhiteSpace(run)||run!=actual||actual=="run_unknown")

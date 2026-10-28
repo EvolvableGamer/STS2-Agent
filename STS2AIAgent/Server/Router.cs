@@ -533,6 +533,41 @@ internal static class Router
                 return;
             }
 
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/start-task")
+            {
+                RequireBoundedBody(request);
+                var body=await ReadJsonBodyAsync<ArenaStartRequest>(request,cancellationToken);
+                if(body?.command_id==null || body.task.ValueKind!=JsonValueKind.Object)throw new ApiException(400,"invalid_request","command_id and task are required.");
+                var task=body.task;
+                string Required(string key)=>task.TryGetProperty(key,out var x)&&x.ValueKind==JsonValueKind.String ? x.GetString()! : throw new ApiException(400,"invalid_request",$"Missing {key}.");
+                if(!task.TryGetProperty("seed",out var seedValue)||seedValue.ValueKind!=JsonValueKind.Object||!seedValue.TryGetProperty("normalized",out var normalized)||normalized.ValueKind!=JsonValueKind.String||!seedValue.TryGetProperty("original",out var original)||original.ValueKind!=JsonValueKind.String)
+                    throw new ApiException(400,"invalid_request","Task seed is required.");
+                var seed=normalized.GetString()!;var character=Required("character_id");var mode=Required("mode");var profile=Required("unlock_profile_ref");var build=Required("game_build");
+                if(!task.TryGetProperty("ascension",out var ascensionElement)||!ascensionElement.TryGetInt32(out var ascension)||!task.TryGetProperty("modifiers",out var modifiersElement)||modifiersElement.ValueKind!=JsonValueKind.Array)
+                    throw new ApiException(400,"invalid_request","Task ascension and modifiers are required.");
+                var modifiers=modifiersElement.EnumerateArray().Select(x=>x.ValueKind==JsonValueKind.String?x.GetString()!:throw new ApiException(400,"invalid_request","Modifier IDs must be strings.")).ToArray();
+                var binding=ArenaControlledSession.PrepareStart(body.command_id,seed,task);
+                var fact=await ArenaControlledSession.Actions.StartAsync(body.command_id,task,async () => await GameThread.InvokeAsync(async () => {
+                    var setup=GameActionService.ReadArenaCustomSetup();
+                    var gameBuild=ReleaseInfoManager.Instance.ReleaseInfo?.Version??"unknown";
+                    if(mode!="custom"||setup.mode!=mode||setup.character_id!=character||setup.ascension!=ascension||profile!=$"profile-{setup.native_profile_id}"||gameBuild!=build||!setup.modifiers.SequenceEqual(modifiers))
+                        throw new ApiException(409,"conditions_mismatch","Custom setup does not match task conditions.");
+                    var state=await GameActionService.StartArenaCustomAsync(seed);
+                    if(state.run_id!=seed||state.run?.character_id!=character||state.run.ascension!=ascension)
+                        throw new ApiException(503,"start_unknown","Started run does not match requested conditions.");
+                    return (object)new {seed=new {original=original.GetString(),normalized=state.run_id},game_build=gameBuild,character_id=state.run.character_id,ascension=state.run.ascension,mode=setup.mode,modifiers=setup.modifiers,unlock_profile_ref=$"profile-{setup.native_profile_id}",evidence="native_custom_setup_and_run"};
+                }));
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {outcome="executed",actual_conditions=fact.payload.GetProperty("actual_conditions"),stream_id=fact.stream_id,game_run_ref=fact.game_run_ref,coverage="bridge_confirmed_only",complete=false}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/query-start")
+            {
+                var commandId=request.QueryString["command_id"];
+                if(string.IsNullOrWhiteSpace(commandId))throw new ApiException(400,"invalid_request","command_id is required.");
+                var binding=ArenaControlledSession.RestoreStart(commandId);
+                var status=ArenaControlledSession.Actions.Query(commandId);
+                var started=ArenaControlledSession.Actions.ReadFacts(0).FirstOrDefault(f=>f.kind=="started");
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {outcome=status=="completed"?"executed":"unknown",actual_conditions=started?.payload.GetProperty("actual_conditions"),stream_id=started?.stream_id,game_run_ref=started?.game_run_ref,coverage="bridge_confirmed_only",complete=false}});statusCode=200;return;
+            }
             // Diagnostic coverage is deliberately limited to actions dispatched through this route.
             if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/bind")
             {
