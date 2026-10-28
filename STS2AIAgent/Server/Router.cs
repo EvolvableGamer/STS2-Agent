@@ -624,6 +624,11 @@ internal static class Router
                 });
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {status,result,coverage="bridge_confirmed_only"}});statusCode=200;return;
             }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/dev/unlock-checks")
+            {
+                var checks=await GameThread.InvokeAsync(GameActionService.ReadArenaUnlockTestChecks);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=checks});statusCode=200;return;
+            }
             if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/dev/unlock-custom")
             {
                 var result=await GameThread.InvokeAsync(GameActionService.UnlockArenaCustomForTest);

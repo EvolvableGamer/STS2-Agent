@@ -72,17 +72,37 @@ namespace STS2AIAgent.Game;
 /// </remarks>
 internal static partial class GameActionService
 {
+    internal static object ReadArenaUnlockTestChecks()
+    {
+        var save=SaveManager.Instance;
+        var profileOk=save.IsProfileInitialized&&save.CurrentProfileId==1;
+        var optInOk=System.Environment.GetEnvironmentVariable("ARENA_ENABLE_TEST_UNLOCK")=="2026102901";
+        var current=ActiveScreenContext.Instance.GetCurrentScreen();
+        var menuOk=current is NMainMenu or NSingleplayerSubmenu;
+        var pathOk=false;
+        if(profileOk) {
+            var actual=save.GetProfileScopedPath(System.IO.Path.Combine(UserDataPathProvider.SavesDir,"progress.save"));
+            var expected=ProjectSettings.GlobalizePath("user://default/2026102901/modded/profile1/saves/progress.save");
+            var actualFull=actual.StartsWith("user://",StringComparison.Ordinal)?ProjectSettings.GlobalizePath(actual):actual;
+            pathOk=string.Equals(System.IO.Path.GetFullPath(actualFull),System.IO.Path.GetFullPath(expected),StringComparison.OrdinalIgnoreCase);
+        }
+        return new {opt_in_ok=optInOk,profile_ok=profileOk,main_menu_ok=menuOk,path_ok=pathOk};
+    }
     internal static object UnlockArenaCustomForTest()
     {
         using var lease=ActionExecutionGate.Shared.Acquire("arena_test_unlock_custom");
         var save=SaveManager.Instance;
         var current=ActiveScreenContext.Instance.GetCurrentScreen();
+        if(!save.IsProfileInitialized)throw new ApiException(403,"isolated_profile_required","Isolated profile is not initialized.");
         var path=save.GetProfileScopedPath(System.IO.Path.Combine(UserDataPathProvider.SavesDir,"progress.save"));
-        if(!ArenaUnlockPolicy.Allows(System.Environment.GetEnvironmentVariable("ARENA_ENABLE_TEST_UNLOCK"),save.CurrentProfileId,path,current is NMainMenu or NSingleplayerSubmenu))
+        var expectedPath=ProjectSettings.GlobalizePath("user://default/2026102901/modded/profile1/saves/progress.save");
+        var fullActual=path.StartsWith("user://",StringComparison.Ordinal)?ProjectSettings.GlobalizePath(path):path;
+        var pathMatches=string.Equals(System.IO.Path.GetFullPath(fullActual),System.IO.Path.GetFullPath(expectedPath),StringComparison.OrdinalIgnoreCase);
+        if(!ArenaUnlockPolicy.Allows(System.Environment.GetEnvironmentVariable("ARENA_ENABLE_TEST_UNLOCK"),save.CurrentProfileId,pathMatches?"user://default/2026102901/modded/profile1/saves/progress.save":"",current is NMainMenu or NSingleplayerSubmenu))
             throw new ApiException(403,"isolated_profile_required","Explicit isolated test profile opt-in is required.");
         const string epoch="CUSTOM_AND_SEEDS_EPOCH";
         if(save.IsEpochRevealed(epoch))return new {epoch,revealed=true,changed=false};
-        var fullPath=ProjectSettings.GlobalizePath(path);
+        var fullPath=fullActual;
         var backup=fullPath+".arena-test-backup";
         if(!System.IO.File.Exists(fullPath))throw new ApiException(409,"progress_missing","Isolated progress save not found.");
         if(System.IO.File.Exists(backup))throw new ApiException(409,"backup_exists","Existing test backup must be preserved.");

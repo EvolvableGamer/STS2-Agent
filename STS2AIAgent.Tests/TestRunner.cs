@@ -1059,6 +1059,7 @@ internal static class TestRunner
         yield return ("LiveReasoning.OverlayGatedByTheSwitch", () => Task.Run(LiveReasoningWiringTests.TheOverlayDrawsThePartialOnlyWhenThinkingIsShown));
         yield return ("LiveReasoning.NotPersisted", () => Task.Run(LiveReasoningWiringTests.ThePartialStaysOutOfEverythingPersisted));
         yield return ("ArenaUnlock.IsolatedOnly", () => Task.Run(ArenaUnlockPolicyTests.OnlyExactIsolatedProfileAndOptInAreAccepted));
+        yield return ("ArenaEngine.Lifecycle", ArenaControlledActionsTests.EngineLifecycleIsOrderedAndNotClaimedAsHumanOperation);
         yield return ("ArenaInput.Policy", () => Task.Run(ArenaInputPolicyTests.OnlyRecordsPressesWithoutKeyRepeat));
         yield return ("ArenaInput.DuringStart", ArenaControlledActionsTests.ExternalInputDuringStartIsRecordedAndStopsActions);
         yield return ("ArenaStart.Durable", ArenaControlledActionsTests.StartIsDurableAndCannotReplay);

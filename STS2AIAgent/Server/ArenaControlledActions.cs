@@ -84,6 +84,15 @@ internal sealed class ArenaControlledActions : IDisposable
    }
   } finally {_gate.Release();}
  }
+ public void RecordEngineAction(string phase,uint? id,string type)
+ {
+  if(phase is not ("started" or "finished"))throw new ArgumentException("Invalid engine action phase");
+  lock(_observationGate) {
+   if(_terminal)return;
+   if(_facts.LastSequence==0){_requests.Append("input_observed",new {input_kind="engine_action_before_started"});_pendingInput=true;Interlocked.Exchange(ref _inputIncident,1);return;}
+   _facts.Append("progress",new {kind="engine_action_"+phase,game_action_id=id,action_type=type,origin="unattributed",coverage="partial",complete=false});
+  }
+ }
  public void RecordExternalInput(string kind)
  {
   lock(_observationGate) {

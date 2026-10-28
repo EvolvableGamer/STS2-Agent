@@ -2,6 +2,16 @@ using STS2AIAgent.Server;
 namespace STS2AIAgent.Tests;
 internal static class ArenaControlledActionsTests
 {
+ public static async Task EngineLifecycleIsOrderedAndNotClaimedAsHumanOperation()
+ {
+  var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);
+  try {using var actions=new ArenaControlledActions(dir,"stream","run");
+   await actions.StartAsync("start",new {},()=>Task.FromResult<object>(new {}));
+   actions.RecordEngineAction("started",7,"PlayCardAction");actions.RecordEngineAction("finished",7,"PlayCardAction");
+   var facts=actions.ReadFacts(0);Assert.Equal(3,facts.Count);Assert.Equal("progress",facts[1].kind);
+   Assert.Equal("engine_action_started",facts[1].payload.GetProperty("kind").GetString());Assert.Equal("engine_action_finished",facts[2].payload.GetProperty("kind").GetString());
+  } finally {Directory.Delete(dir,true);}
+ }
  public static async Task ExternalInputDuringStartIsRecordedAndStopsActions()
  {
   var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());Directory.CreateDirectory(dir);
