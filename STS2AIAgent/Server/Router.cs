@@ -5,12 +5,15 @@ using System.Text.Json;
 using System.Threading;
 using MegaCrit.Sts2.Core.Debug;
 using MegaCrit.Sts2.Core.Logging;
+using MegaCrit.Sts2.Core.Runs;
 using STS2AIAgent.Config;
 using STS2AIAgent.Game;
 using STS2AIAgent.Agent;
 using STS2AIAgent.Multiplayer;
 
 namespace STS2AIAgent.Server;
+
+internal sealed class ArenaSeedRequest { public string? seed { get; init; } }
 
 internal static class Router
 {
@@ -530,6 +533,77 @@ internal static class Router
                 return;
             }
 
+            // Diagnostic coverage is deliberately limited to actions dispatched through this route.
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/bind")
+            {
+                RequireBoundedBody(request);
+                var body = await ReadJsonBodyAsync<ArenaControlledBindRequest>(request,cancellationToken);
+                var actual = await GameThread.InvokeAsync(() => GameStateService.BuildStatePayload().run_id);
+                var binding = ArenaControlledSession.Bind(body?.stream_id,body?.game_run_ref,actual);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=binding});statusCode=200;return;
+            }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/facts")
+            {
+                if (!long.TryParse(request.QueryString["after_seq"],out var after) || after<0)
+                    throw new ApiException(400,"invalid_cursor","A nonnegative after_seq is required.");
+                var facts=ArenaControlledSession.Read(after);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {facts,coverage="bridge_confirmed_only",complete=false,bypass_attempt=ArenaControlledSession.HasBypass}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/terminal")
+            {
+                var terminal=await GameThread.InvokeAsync(() => {
+                    var state=GameStateService.BuildStatePayload();
+                    var history=RunManager.Instance.History;
+                    ArenaControlledSession.CheckRun(state.run_id);
+                    if(!ArenaTerminalPolicy.Allows(history!=null,history?.WasAbandoned??true,state.game_over?.phase=="summary_ready",history?.Seed==state.run_id,state.game_over?.floor))
+                        throw new ApiException(409,"terminal_unverified","Natural game-over summary and matching history are required.");
+                    return new {outcome=history!.Win?"victory":"death",floor=state.game_over!.floor!.Value};
+                });
+                var fact=ArenaControlledSession.Actions.Terminal(terminal.outcome,terminal.floor);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {fact,coverage="bridge_confirmed_only",complete=false}});statusCode=200;return;
+            }            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/query")
+            {
+                var id=request.QueryString["action_id"];
+                if(string.IsNullOrWhiteSpace(id))throw new ApiException(400,"invalid_request","action_id is required.");
+                var status=ArenaControlledSession.Actions.Query(id);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {action_id=id,status,coverage="bridge_confirmed_only"}});statusCode=200;return;
+            }            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/action")
+            {
+                RequireBoundedBody(request);
+                var body=await ReadJsonBodyAsync<ArenaControlledActionRequest>(request,cancellationToken);
+                if (body?.request?.action==null || string.IsNullOrWhiteSpace(body.action_id))
+                    throw new ApiException(400,"invalid_request","action_id and request.action are required.");
+                if (!ArenaControlledSession.AllowsAction(body.request.action)) throw new ApiException(403,"unsupported_action","Action is outside diagnostic coverage.");
+                ActionResponsePayload? result=null;
+                var status=await ArenaControlledSession.Actions.ExecuteAsync(body.action_id,body.request.action,body.request,async () => {
+                    result=await GameThread.InvokeAsync(async () => {
+                        return await GameActionService.ExecuteAsync(body.request, beforeDispatch: () => {
+                            var state=GameStateService.BuildStatePayload();
+                            ArenaControlledSession.CheckRun(state.run_id);
+                            ArenaControlledSession.CheckRewardExit(body.request.action!,state);
+                        }, arenaPermit: ArenaControlledSession.Permit);
+                    });
+                    return result.status;
+                });
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {status,result,coverage="bridge_confirmed_only"}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/custom-setup")
+            {
+                var setup=await GameThread.InvokeAsync(GameActionService.ReadArenaCustomSetup);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=setup});statusCode=200;return;
+            }            // Preparation only: this does not start a run or establish a durable task.
+            if (request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) &&
+                request.Url?.AbsolutePath == "/arena/prepare-seed")
+            {
+                RequireBoundedBody(request);
+                var body = await ReadJsonBodyAsync<ArenaSeedRequest>(request, cancellationToken);
+                if (!ArenaSeedPolicy.IsValid(body?.seed))
+                    throw new ApiException(400, "invalid_seed", "Expected an ASCII alphanumeric seed of at most 100 characters.");
+                var actual = await GameThread.InvokeAsync(() => GameActionService.PrepareArenaSeed(body!.seed!));
+                await WriteJsonAsync(response, 200, new { ok = true, request_id = requestId, data = new { seed = actual } });
+                statusCode = 200;
+                return;
+            }
             if (request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) &&
                 request.Url?.AbsolutePath == "/action")
             {

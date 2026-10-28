@@ -89,7 +89,7 @@ internal static partial class GameStateService
     private static bool _crystalSphereButtonLookupWarningLogged;
 
     private static FieldInfo? StartRunLobbyMaxPlayersField =>
-        ReflectedGameMembers.Field(typeof(StartRunLobby), "_maxPlayers");
+        ReflectedGameMembers.Field(typeof(StartRunLobby), "<MaxPlayers>k__BackingField");
 
     public static GameStatePayload BuildStatePayload()
     {
@@ -1377,7 +1377,7 @@ internal static partial class GameStateService
             return Array.Empty<ulong>();
         }
 
-        var connectedPlayerIds = RunManager.Instance.RunLobby?.PlayerIds?.ToArray();
+        var connectedPlayerIds = RunManager.Instance.RunLobby?.ConnectedPlayerIds?.ToArray();
         if (connectedPlayerIds != null && connectedPlayerIds.Length > 0)
         {
             return connectedPlayerIds;

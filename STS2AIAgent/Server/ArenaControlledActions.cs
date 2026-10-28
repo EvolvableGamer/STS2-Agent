@@ -1,0 +1,63 @@
+using System.Text.Json;
+namespace STS2AIAgent.Server;
+// Controlled-action evidence only. It does not observe manual input or automatic game transitions.
+internal sealed class ArenaControlledActions : IDisposable
+{
+ private readonly ArenaFactJournal _requests, _facts;
+ private readonly SemaphoreSlim _gate = new(1,1);
+ private readonly HashSet<string> _ids = new(StringComparer.Ordinal);
+ private readonly Dictionary<string,string> _statuses = new(StringComparer.Ordinal);
+ private bool _unresolved, _terminal;
+ public ArenaControlledActions(string directory,string stream,string run)
+ {
+  Directory.CreateDirectory(directory);
+  _requests=new ArenaFactJournal(Path.Combine(directory,"requests.jsonl"),stream+"-requests",run);
+  try {_facts=new ArenaFactJournal(Path.Combine(directory,"facts.jsonl"),stream,run);}
+  catch {_requests.Dispose();throw;}
+  long factCursor=0;
+  while(true) {var page=_facts.ReadAfter(factCursor);if(page.Count==0)break;foreach(var fact in page) {if(_terminal)throw new InvalidDataException("Facts after terminal");if(fact.kind=="terminal")_terminal=true;factCursor=fact.source_seq;}}
+  long cursor=0;
+  while(true) { var page=_requests.ReadAfter(cursor); if(page.Count==0)break; foreach(var record in page) {
+   var id=record.payload.GetProperty("action_id").GetString() ?? throw new InvalidDataException("Missing action id");
+   if(record.kind=="requested") {if(!_ids.Add(id)||_unresolved)throw new InvalidDataException("Invalid request history");_statuses[id]="unknown";_unresolved=true;}
+   else if(record.kind=="resolved") {if(!_unresolved||!_ids.Contains(id))throw new InvalidDataException("Invalid resolution history");_statuses[id]="completed";_unresolved=false;}
+   else throw new InvalidDataException("Unknown request history");
+   cursor=record.source_seq;
+  }}
+ }
+ public async Task<string> ExecuteAsync(string id,string action,object request,Func<Task<string>> dispatch)
+ {
+  if(string.IsNullOrWhiteSpace(id)||id.Length>128||string.IsNullOrWhiteSpace(action))throw new ArgumentException("Missing action id or action");
+  await _gate.WaitAsync();
+  try {
+   if(_terminal||_unresolved||_ids.Contains(id))throw new InvalidOperationException("Unresolved or duplicate action");
+   _requests.Append("requested",new {action_id=id,action,request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
+   var status=await dispatch();
+   if(status!="completed")return status;
+   _facts.Append("operation",new {operation_id=id+"-operation",caused_by_action_id=id,origin="agent_interface",action,request,status="completed",coverage="bridge_confirmed_only"});
+   _requests.Append("resolved",new {action_id=id,status});_statuses[id]="completed";_unresolved=false;
+   return status;
+  } finally {_gate.Release();}
+ }
+ public ArenaFact Started(object actualConditions)
+ {
+  _gate.Wait();
+  try {
+   if(_facts.LastSequence!=0||_unresolved||_terminal)throw new InvalidOperationException("Start is not first");
+   return _facts.Append("started",new {actual_conditions=actualConditions,coverage="bridge_confirmed_only",complete=false});
+  } finally {_gate.Release();}
+ }
+ public ArenaFact Terminal(string outcome,int floor)
+ {
+  _gate.Wait();
+  try {
+   if(_unresolved)throw new InvalidOperationException("Action outcome unresolved");
+   if(_terminal)throw new InvalidOperationException("Terminal already recorded");
+   var fact=_facts.Append("terminal",new {outcome,floor,source_high_watermark=_facts.LastSequence+1,coverage="bridge_confirmed_only",complete=false});
+   _terminal=true;return fact;
+  } finally {_gate.Release();}
+ }
+ public string Query(string id) { _gate.Wait(); try {return _statuses.GetValueOrDefault(id,"not_found");} finally {_gate.Release();} }
+ public IReadOnlyList<ArenaFact> ReadFacts(long afterSeq) { _gate.Wait(); try {return _facts.ReadAfter(afterSeq);} finally {_gate.Release();} }
+ public void Dispose(){_requests.Dispose();_facts.Dispose();_gate.Dispose();}
+}

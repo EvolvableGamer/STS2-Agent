@@ -524,3 +524,12 @@ Tools are **synchronous**; don't make them async. Wire keys stay spelled the way
 - `STS2AIAgent/Server/CompanionStartupFile.cs` — publish initialization, listener or failure state to the host-selected session path.
 - `STS2AIAgent/Server/InstanceEndpointFile.cs` — publish and remove PID/role/port hints for local MCP discovery.
 - `mcp_server/src/sts2_mcp/discovery.py` — validate local endpoint hints against /health and resolve a role or PID without guessing an ambiguous instance.
+
+## Arena local experiment
+
+- `STS2AIAgent/Game/ArenaSeedPolicy.cs`: validates experimental seed preparation input.
+- `STS2AIAgent/Server/ArenaFactJournal.cs`: private durable fact journal primitive; not yet wired to game events.
+- `STS2AIAgent/Server/ArenaControlledActions.cs`: controlled-action request write-ahead and limited bridge-confirmed facts, not complete game coverage.
+- `STS2AIAgent/Server/ArenaControlledSession.cs`: local diagnostic stream binding and coverage boundary.
+- `STS2AIAgent/Game/ArenaRewardExitPolicy.cs`: guards the controlled reward-exit macro against unrecorded claims.
+- `STS2AIAgent/Server/ArenaTerminalPolicy.cs`: checks natural terminal eligibility before recording native result.

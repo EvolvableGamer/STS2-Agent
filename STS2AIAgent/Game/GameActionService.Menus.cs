@@ -26,6 +26,7 @@ using MegaCrit.Sts2.Core.Nodes.Rewards;
 using MegaCrit.Sts2.Core.Nodes.Screens;
 using MegaCrit.Sts2.Core.Nodes.Screens.CardSelection;
 using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
+using MegaCrit.Sts2.Core.Nodes.Screens.CustomRun;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.InspectScreens;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
@@ -71,6 +72,24 @@ namespace STS2AIAgent.Game;
 /// </remarks>
 internal static partial class GameActionService
 {
+    internal static object ReadArenaCustomSetup()
+    {
+        if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen || screen.Lobby.NetService.Type.IsMultiplayer() || screen.Lobby.GameMode != GameMode.Custom)
+            throw new ApiException(409, "invalid_action", "Native singleplayer custom-run screen required.");
+        var lobby=screen.Lobby;
+        return new { mode="custom", seed=lobby.Seed, character_id=lobby.LocalPlayer.character?.Id.Entry,
+            ascension=lobby.Ascension, modifiers=lobby.Modifiers.Select(x=>x.Id.Entry).ToArray(),
+            native_profile_id=SaveManager.Instance.CurrentProfileId };
+    }
+    internal static string PrepareArenaSeed(string seed)
+    {
+        using var lease = ActionExecutionGate.Shared.Acquire("arena_prepare_seed");
+        var current = ActiveScreenContext.Instance.GetCurrentScreen();
+        if (current is not NCustomRunScreen screen || screen.Lobby.NetService.Type.IsMultiplayer() || screen.Lobby.GameMode != GameMode.Custom)
+            throw new ApiException(409, "invalid_action", "Seed preparation requires the native singleplayer custom-run screen.");
+        screen.Lobby.SetSeed(seed);
+        return screen.Lobby.Seed ?? throw new ApiException(503, "seed_unavailable", "Lobby did not return a seed after setting it.");
+    }
     private static async Task<ActionResponsePayload> ExecuteCloseMainMenuSubmenuAsync()
     {
         var currentScreen = ActiveScreenContext.Instance.GetCurrentScreen();

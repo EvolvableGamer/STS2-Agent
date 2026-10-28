@@ -305,7 +305,7 @@ internal static partial class GameStateService
         }
     }
 
-    private static CharacterSelectPlayerPayload BuildCharacterSelectPlayerPayload(StartRunLobbyPlayer player, ulong localPlayerId)
+    private static CharacterSelectPlayerPayload BuildCharacterSelectPlayerPayload(LobbyPlayer player, ulong localPlayerId)
     {
         return new CharacterSelectPlayerPayload
         {

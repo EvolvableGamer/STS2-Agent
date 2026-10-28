@@ -90,7 +90,7 @@ internal static partial class GameActionService
     /// mod refusing every later request. <see cref="ActionExecutionGate"/> refuses a concurrent caller
     /// immediately instead of queueing it behind a snapshot the first action has already invalidated.
     /// </remarks>
-    public static async Task<ActionResponsePayload> ExecuteAsync(ActionRequest request, Action? beforeDispatch = null)
+    public static async Task<ActionResponsePayload> ExecuteAsync(ActionRequest request, Action? beforeDispatch = null, object? arenaPermit = null)
     {
         var actionName = request.action?.Trim().ToLowerInvariant();
         var localPlayerId = System.Environment.GetEnvironmentVariable("STS2_MULTIPLAYER_NET_ID");
@@ -118,6 +118,11 @@ internal static partial class GameActionService
         {
             // The bridge's final state/identity checks must share the mutation's lease.
             // No await separates this fresh check from the handler's synchronous dispatch.
+            if (ArenaControlledSession.IsBound && !ArenaControlledSession.HasPermit(arenaPermit))
+            {
+                ArenaControlledSession.NoteBypass();
+                throw new ApiException(409, "arena_bypass", "A diagnostic controlled stream is active; this action is outside it.");
+            }
             beforeDispatch?.Invoke();
             return await DispatchAsync(actionName, request);
         }
