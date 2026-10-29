@@ -11,6 +11,8 @@ internal static class ArenaLiveReplaySnapshot
   try {
    var matching=assemblies.Where(a=>a.GetName().Name=="RunReplays").ToArray();
    if(matching.Length!=1)return false;
+   var marker=matching[0].GetType("RunReplays.ModEntryPoint",false)?.GetProperty("ArenaRecorderReady",BindingFlags.Public|BindingFlags.Static);
+   if(marker?.PropertyType!=typeof(bool)||marker.GetMethod is not {IsPublic:true,IsStatic:true}||marker.GetIndexParameters().Length!=0||marker.GetValue(null) is not true)return false;
    _=Resolve(matching[0].GetType("RunReplays.PlayerActionBuffer",false));
    return true;
   } catch {return false;}

@@ -611,7 +611,7 @@ internal static class Router
                     ArenaControlledSession.CheckRun(state.run_id);
                     var natural=ArenaTerminalPolicy.Allows(history!=null,history?.WasAbandoned??true,state.game_over?.phase=="summary_ready",history?.Seed==state.run_id,state.game_over?.floor);
                     var assemblies=AppDomain.CurrentDomain.GetAssemblies().Where(a=>a.GetName().Name=="RunReplays").ToArray();
-                    if(assemblies.Length!=1)throw new ApiException(503,"replay_unavailable","RunReplays is not available.");
+                    if(!ArenaLiveReplaySnapshot.Preflight(assemblies))throw new ApiException(503,"replay_unavailable","RunReplays is not ready.");
                     Func<IReadOnlyList<string>> read;
                     try {read=ArenaLiveReplaySnapshot.Resolve(assemblies[0].GetType("RunReplays.PlayerActionBuffer",false));}
                     catch(Exception) {throw new ApiException(503,"replay_unavailable","RunReplays snapshot is unavailable.");}

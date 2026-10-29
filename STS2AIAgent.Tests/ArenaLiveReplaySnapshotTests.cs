@@ -40,7 +40,7 @@ internal static class ArenaLiveReplaySnapshotTests
   Assert.Equal("EndTurn",ArenaLiveReplaySnapshot.Resolve(typeof(Buffer))()[0]);
   Reject(()=>ArenaLiveReplaySnapshot.Resolve(typeof(BadBuffer)));Reject(()=>ArenaLiveReplaySnapshot.Resolve(null));
  }
- private static Assembly FakeAssembly(string name,bool addType=true,Type? resultType=null)
+ private static Assembly FakeAssembly(string name,bool addType=true,Type? resultType=null,bool? marker=true,bool throwsMarker=false,Type? markerType=null)
  {
   var assembly=AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name),AssemblyBuilderAccess.Run);
   var module=assembly.DefineDynamicModule(name);
@@ -50,6 +50,17 @@ internal static class ArenaLiveReplaySnapshotTests
    var il=method.GetILGenerator();il.Emit(OpCodes.Newobj,typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!);il.Emit(OpCodes.Throw);
    type.CreateType();
   }
+  var entry=module.DefineType("RunReplays.ModEntryPoint",TypeAttributes.Public|TypeAttributes.Class);
+  if(marker!=null){
+   var valueType=markerType??typeof(bool);
+   var prop=entry.DefineProperty("ArenaRecorderReady",PropertyAttributes.None,valueType,Type.EmptyTypes);
+   var getter=entry.DefineMethod("get_ArenaRecorderReady",MethodAttributes.Public|MethodAttributes.Static|MethodAttributes.SpecialName,valueType,Type.EmptyTypes);
+   var il=getter.GetILGenerator();
+   if(throwsMarker){il.Emit(OpCodes.Newobj,typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!);il.Emit(OpCodes.Throw);}
+   else {if(valueType==typeof(bool))il.Emit(marker.Value?OpCodes.Ldc_I4_1:OpCodes.Ldc_I4_0);else il.Emit(OpCodes.Ldstr,"true");il.Emit(OpCodes.Ret);}
+   prop.SetGetMethod(getter);
+  }
+  entry.CreateType();
   return assembly;
  }
  public static void PreflightChecksUniqueAssemblyAndSignatureWithoutInvokingSnapshot()
@@ -61,5 +72,9 @@ internal static class ArenaLiveReplaySnapshotTests
   Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",false)}));
   Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",true,typeof(string))}));
   Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{valid,FakeAssembly("RunReplays")}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",marker:null)}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",marker:false)}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",throwsMarker:true)}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",markerType:typeof(string))}));
  }
 }
