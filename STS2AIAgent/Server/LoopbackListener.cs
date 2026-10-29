@@ -128,7 +128,8 @@ internal static class LoopbackListener
     {
         // HTTP.sys excluded/reserved ranges can report sharing violation (32)
         // or access denied (5), even when no ordinary TCP listener owns the port.
-        return ex.NativeErrorCode is 5 or 32 or 183 or 10013 or 10048 || IsRegistrationConflict(ex);
+        // macOS HttpListener reports native EADDRINUSE as48.
+        return ex.NativeErrorCode is 5 or 32 or 48 or 183 or 10013 or 10048 || IsRegistrationConflict(ex);
     }
 
     private static bool IsRegistrationConflict(HttpListenerException ex)

@@ -763,6 +763,7 @@ internal static class TestRunner
         yield return ("EventOptionLocalization.DynamicVars", () => Task.Run(EventOptionLocalizationTests.AddsEventVariablesBeforeFormatting));
         yield return ("EventOptionLocalization.Null", () => Task.Run(EventOptionLocalizationTests.MissingLocStringReturnsEmpty));
         yield return ("EventOptionLocalization.Signature", () => Task.Run(EventOptionLocalizationTests.FormatsSignatureFieldsWithEventVariables));
+        yield return ("LoopbackListener.MacAddressInUse", () => Task.Run(LoopbackListenerTests.MacAddressInUseFallsBack));
         yield return ("Settings.ApiPort", () => Task.Run(SettingsStoreTests.ApiPort_RoundTripsWithoutChangingLegacyDefaults));
         yield return ("LoopbackListener.ExcludedRangeUsesDynamicPort", () => Task.Run(LoopbackListenerTests.ExcludedRangeUsesDynamicPort));
         yield return ("LoopbackListener.BindRaceReselectsDynamicPort", () => Task.Run(LoopbackListenerTests.BindRaceReselectsDynamicPort));

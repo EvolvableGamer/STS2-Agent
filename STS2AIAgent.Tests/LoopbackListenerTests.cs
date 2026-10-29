@@ -5,6 +5,16 @@ namespace STS2AIAgent.Tests;
 
 internal static class LoopbackListenerTests
 {
+    public static void MacAddressInUseFallsBack()
+    {
+        var selected = LoopbackListener.Select(19080, true, port =>
+        {
+            if (port == 19080) throw new HttpListenerException(48, "Address already in use");
+            return "listening";
+        }, () => throw new Exception("Nearby port should be usable"), () => { });
+        Assert.Equal(19081, selected.Port);
+    }
+
     public static void ExcludedRangeUsesDynamicPort()
     {
         var attempted = new List<int>();
