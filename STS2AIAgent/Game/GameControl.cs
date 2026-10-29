@@ -65,7 +65,7 @@ internal static partial class GameControl
         return new {
             protocol = "sts2-game-control/1", instance_id = InstanceId, game_build = "23811903",
             game_version = "v0.107.1", screen = screen != null ? "CUSTOM_RUN" : state.screen, active_run = run != null,
-            has_saved_run = state.available_actions.Contains("continue_run"),
+            has_saved_run = SaveManager.Instance.HasRunSave || SaveManager.Instance.HasMultiplayerRunSave,
             seed = run?.Rng.StringSeed ?? screen?.Lobby.Seed,
             character_id = player?.Character.Id.Entry ?? screen?.Lobby.LocalPlayer.character.Id.Entry,
             ascension = run?.AscensionLevel ?? screen?.Lobby.Ascension,
