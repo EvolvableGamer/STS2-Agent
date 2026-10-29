@@ -1,4 +1,5 @@
 using System.Net;
+using STS2AIAgent.Config;
 using System.Threading;
 using MegaCrit.Sts2.Core.Logging;
 
@@ -212,15 +213,11 @@ public sealed class HttpServer
 
     private static int ResolvePreferredPort()
     {
+        // Environment keeps its old priority and explicit-port fallback policy.
+        // Read the persisted preference only when no valid environment port exists.
         var rawPort = Environment.GetEnvironmentVariable("STS2_API_PORT");
-        if (!string.IsNullOrWhiteSpace(rawPort) &&
-            int.TryParse(rawPort.Trim(), out var port) &&
-            port is > 0 and <= 65535)
-        {
-            return port;
-        }
-
-        return DefaultPort;
+        if (ApiPortPolicy.Valid(rawPort) is int explicitPort) return explicitPort;
+        return ApiPortPolicy.Resolve(rawPort, new SettingsStore().Load().ApiPort);
     }
 
 }

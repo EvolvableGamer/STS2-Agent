@@ -44,6 +44,7 @@
     <Compile Include="..\STS2AIAgent\Agent\DecisionContext.cs" Link="Agent\DecisionContext.cs" />
     <Compile Include="..\STS2AIAgent\Agent\StateViews.cs" Link="Agent\StateViews.cs" />
     <Compile Include="..\STS2AIAgent\Agent\PlaybookSections.cs" Link="Agent\PlaybookSections.cs" />
+    <Compile Include="../STS2AIAgent/Server/ApiPortPolicy.cs" Link="Server/ApiPortPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Server\LoopbackListener.cs" Link="Server\LoopbackListener.cs" />
     <Compile Include="..\STS2AIAgent\Server\CompanionPortFile.cs" Link="Server\CompanionPortFile.cs" />
     <Compile Include="..\STS2AIAgent\Multiplayer\CompanionHealth.cs" Link="Multiplayer\CompanionHealth.cs" />

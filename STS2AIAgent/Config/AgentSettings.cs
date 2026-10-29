@@ -62,6 +62,9 @@ internal sealed class AgentSettings
 
     public bool McpEnabled { get; set; }
 
+    /// <summary>Preferred loopback HTTP/native MCP port. Null preserves legacy port selection.</summary>
+    public int? ApiPort { get; set; }
+
     public int? MaxSessionTokens { get; set; }
 
     public int? MaxSessionRequests { get; set; }
@@ -305,6 +308,8 @@ internal sealed class AgentSettings
         {
             OverlayTop = null;
         }
+
+        if (ApiPort is < 1 or > 65535) ApiPort = null;
 
         if (McpPort is < 1 or > 65535)
         {

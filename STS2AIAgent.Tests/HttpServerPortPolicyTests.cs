@@ -18,8 +18,8 @@ internal static class HttpServerPortPolicyTests
 
         // A configured STS2_API_PORT resolves to that exact port.
         Assert.Contains("Environment.GetEnvironmentVariable(\"STS2_API_PORT\")", resolve);
-        Assert.Contains("returnport;", resolve);
-        Assert.Contains("returnDefaultPort;", resolve);
+        Assert.Contains("if(ApiPortPolicy.Valid(rawPort)isintexplicitPort)returnexplicitPort;", resolve);
+        Assert.Contains("returnApiPortPolicy.Resolve(rawPort,newSettingsStore().Load().ApiPort);", resolve);
 
         // …and an explicit port only permits fallback when the operator opts in via AllowFallback().
         Assert.Contains("varallowIncrement=!IsExplicitPortConfigured()||AllowFallback();", start);

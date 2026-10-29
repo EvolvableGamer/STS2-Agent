@@ -5,6 +5,23 @@ namespace STS2AIAgent.Tests;
 
 internal static class SettingsStoreTests
 {
+    public static void ApiPort_RoundTripsWithoutChangingLegacyDefaults()
+    {
+        var store = new SettingsStore(NewSettingsPath());
+        Assert.Null(store.Load().ApiPort);
+        var settings = AgentSettings.CreateDefault();
+        settings.ApiPort = 19080;
+        store.Save(settings);
+        Assert.Equal<int?>(19080, store.Load().ApiPort);
+        settings.ApiPort = 70000;
+        settings.EnsureValidShape();
+        Assert.Null(settings.ApiPort);
+        Assert.Equal(8080, STS2AIAgent.Server.ApiPortPolicy.Resolve(null, null));
+        Assert.Equal(19080, STS2AIAgent.Server.ApiPortPolicy.Resolve(null, 19080));
+        Assert.Equal(19081, STS2AIAgent.Server.ApiPortPolicy.Resolve("19081", 19080));
+        Assert.Equal(19080, STS2AIAgent.Server.ApiPortPolicy.Resolve("invalid", 19080));
+    }
+
     public static void RoundTrip_PreservesEndpointsModelsAndRoles()
     {
         var path = Path.Combine(Path.GetTempPath(), "sts2-agent-tests", Guid.NewGuid().ToString("N"), "settings.json");

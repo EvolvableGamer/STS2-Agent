@@ -392,6 +392,7 @@ but hasn't settled; the agent treats a run of these as a stall (`NoProgressPolic
 
 ### Files
 - `STS2AIAgent/Server/HttpServer.cs` — the loopback `HttpListener` host. The port increments when busy unless `STS2_API_PORT` pins it (`STS2_API_ALLOW_FALLBACK`).
+- `STS2AIAgent/Server/ApiPortPolicy.cs` — pure environment/persisted/default HTTP port selection; null preserves8080.
 - `STS2AIAgent/Server/LoopbackListener.cs` — listener binding and port-fallback rules.
 - `STS2AIAgent/Server/LocalRequestGuard.cs` — Host/Origin rules that keep web pages (cross-site POST, DNS rebinding) away from the REST routes; `Router` applies it to every request.
 - `STS2AIAgent/Server/Router.cs` — every route (`/health`, `/state`, `/actions/available`, `/decision-snapshot`, `/action`, `/data/*`, `/decisions`, `/strategy`, `/planner-briefing`, `/session/control`, `/teammate/control`, `/companion/*`, `/screenshot`, `/mcp`), the error envelope, and `ModVersion` (one of the five version files).
