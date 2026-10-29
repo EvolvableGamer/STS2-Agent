@@ -77,4 +77,16 @@ internal static class ArenaLiveReplaySnapshotTests
   Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",throwsMarker:true)}));
   Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",markerType:typeof(string))}));
  }
+ public static void LiveBindingRequiresOriginalObjectsAndDurableStart()
+ {
+  object run=new(),executor=new();var binding=new ArenaLiveReplayBinding(run,executor,"stream","ABC123","IRONCLAD",0);
+  Assert.True(ArenaLiveReplaySnapshot.IsBound(binding,"stream",run,executor,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(null,"stream",run,executor,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"other",run,executor,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"stream",new object(),executor,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"stream",run,new object(),true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"stream",null,executor,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"stream",run,null,true));
+  Assert.False(ArenaLiveReplaySnapshot.IsBound(binding,"stream",run,executor,false));
+ }
 }

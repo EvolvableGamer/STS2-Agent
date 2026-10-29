@@ -6,6 +6,8 @@ internal sealed record ArenaLiveReplayBinding(object Run,object Executor,string 
 internal sealed record ArenaLiveReplayResult(string stream_id,string game_run_ref,string source,string content,int action_count,bool complete);
 internal static class ArenaLiveReplaySnapshot
 {
+ internal static bool IsBound(ArenaLiveReplayBinding? binding,string stream,object? run,object? executor,bool started) =>
+  started&&binding!=null&&run!=null&&executor!=null&&binding.Stream==stream&&ReferenceEquals(binding.Run,run)&&ReferenceEquals(binding.Executor,executor);
  internal static bool Preflight(IEnumerable<Assembly> assemblies)
  {
   try {
@@ -19,8 +21,7 @@ internal static class ArenaLiveReplaySnapshot
  }
  internal static ArenaLiveReplayResult Build(ArenaLiveReplayBinding binding,object? run,object? executor,string stream,string? seed,string? character,int? ascension,bool naturalTerminal,Func<IReadOnlyList<string>> read)
  {
-  if(run==null||executor==null||!ReferenceEquals(binding.Run,run)||!ReferenceEquals(binding.Executor,executor)||
-   binding.Stream!=stream||binding.Seed!=seed||!string.Equals(binding.Character,character,StringComparison.OrdinalIgnoreCase)||
+  if(!IsBound(binding,stream,run,executor,true)||binding.Seed!=seed||!string.Equals(binding.Character,character,StringComparison.OrdinalIgnoreCase)||
    binding.Ascension!=ascension||!naturalTerminal||!Regex.IsMatch(binding.Seed,"^[A-Za-z0-9]{1,100}$")||
    !Regex.IsMatch(binding.Character,"^[A-Za-z0-9_]{1,100}$"))throw new InvalidOperationException("Replay binding or terminal mismatch");
   var actions=read()??throw new InvalidOperationException("Replay buffer unavailable");

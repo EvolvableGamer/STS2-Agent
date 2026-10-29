@@ -1,4 +1,5 @@
 using STS2AIAgent.Game;
+using MegaCrit.Sts2.Core.Runs;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -46,6 +47,19 @@ internal static class ArenaControlledSession
  internal static ArenaLiveReplayBinding LiveRun(string stream)
  {
   lock(Gate) return _liveReplay is { } binding&&binding.Stream==stream ? binding : throw new ApiException(409,"live_run_unavailable","Live run is unavailable or belongs to another start.");
+ }
+ internal static async Task<bool> IsLiveReplayBoundAsync(string[] commandIds)
+ {
+  if(commandIds.Length!=1||string.IsNullOrWhiteSpace(commandIds[0])||commandIds[0].Length>128)return false;
+  try {
+   var stream=StartStream(commandIds[0]);
+   var binding=LiveRun(stream);
+   var started=Actions.ReadFacts(0).Any(f=>f.kind=="started"&&f.stream_id==stream&&f.game_run_ref==binding.Seed);
+   return await GameThread.InvokeAsync(() => {
+    var state=RunManager.Instance.DebugOnlyGetState();
+    return ArenaLiveReplaySnapshot.IsBound(binding,stream,state,RunManager.Instance.ActionExecutor,started&&state?.Rng.StringSeed==binding.Seed);
+   },TimeSpan.FromSeconds(3),CancellationToken.None);
+  } catch {return false;}
  }
  internal static string StartStream(string commandId)
  {

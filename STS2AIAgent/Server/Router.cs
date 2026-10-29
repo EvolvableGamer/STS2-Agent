@@ -592,7 +592,12 @@ internal static class Router
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/replay-health")
             {
                 var ready=ArenaLiveReplaySnapshot.Preflight(AppDomain.CurrentDomain.GetAssemblies());
-                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {source="runreplays-live-buffer/1",ready,complete=false}});statusCode=200;return;
+                var commandIds=request.QueryString.GetValues("command_id");
+                if(commandIds==null) {
+                    await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {source="runreplays-live-buffer/1",ready,complete=false}});statusCode=200;return;
+                }
+                var bound=await ArenaControlledSession.IsLiveReplayBoundAsync(commandIds!);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {source="runreplays-live-buffer/1",ready,complete=false,bound}});statusCode=200;return;
             }
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/replay-snapshot")
             {
