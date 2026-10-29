@@ -1,4 +1,6 @@
-# Local recording probe (not for distribution)
+# Recording probe — source review only
+
+The user requested pushing all current progress for expert review after pausing tests. This branch publishes source only; it is not merged into `arena/mac-public-23811903` and no diagnostic binary or raw game data is distributed. Actual live probes used commits d586e60 and 1de3133. The later review-only merge of release a9302b8 has not been rebuilt or tested in-game.
 
 This experimental branch adds diagnostics to the Mac public-build controls. It is not a release recorder and never declares complete operation coverage. No Arena task, identity, scoring or upload lives here.
 
