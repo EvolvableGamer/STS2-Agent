@@ -58,7 +58,7 @@ internal static class Router
             }
 
 #if STS2_PUBLIC_23811903
-            if (request.Url?.AbsolutePath is "/game/control/info" or "/game/control/catalog" or "/game/control/setting")
+            if (request.Url?.AbsolutePath is "/game/control/info" or "/game/control/catalog" or "/game/control/setting" or "/game/control/open-custom" or "/game/control/start" or "/game/control/unlock-custom")
             {
                 if (!request.IsLocal || !Game.GameControl.Authorized(request.Headers["X-STS2-Game-Control"]))
                     throw new ApiException(403, "game_control_required", "An isolated game-control capability is required.");
@@ -67,6 +67,19 @@ internal static class Router
                     result = await Game.GameThread.InvokeAsync(Game.GameControl.Info, cancellationToken);
                 else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/game/control/catalog")
                     result = await Game.GameThread.InvokeAsync(Game.GameControl.Catalog, cancellationToken);
+                else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/game/control/open-custom")
+                    result = await Game.GameThread.InvokeAsync(Game.GameControl.OpenCustom);
+                else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/game/control/unlock-custom")
+                    result = await Game.GameThread.InvokeAsync(Game.GameControl.UnlockCustom, cancellationToken);
+                else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/game/control/start")
+                    result = await Game.GameThread.InvokeAsync(() => Game.GameControl.QueryStart(request.QueryString["command_id"] ?? ""), cancellationToken);
+                else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/game/control/start")
+                {
+                    if (request.ContentLength64 < 0 || request.ContentLength64 > 256)
+                        throw new ApiException(400, "invalid_command", "A bounded command ID is required.");
+                    var command = await ReadJsonBodyAsync<System.Text.Json.JsonElement>(request, cancellationToken);
+                    result = await Game.GameThread.InvokeAsync(() => Game.GameControl.StartCustom(command));
+                }
                 else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/game/control/setting")
                 {
                     if (request.ContentLength64 < 0 || request.ContentLength64 > 4096)

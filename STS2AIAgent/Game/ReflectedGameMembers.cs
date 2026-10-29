@@ -78,7 +78,6 @@ internal static class ReflectedGameMembers
         new(typeof(NMultiplayerSubmenu), "StartLoad", MemberKind.Method, false, "continue_ai_teammate"),
 #if STS2_PUBLIC_23811903
         new(typeof(SaveManager), "GenerateUnlockStateFromProgress", MemberKind.Method, false, "isolated game unlock settings"),
-        new(typeof(StartRunLobby), "Seed", MemberKind.Property, false, "isolated game seed setting"),
         new(typeof(StartRunLobby), "<MaxPlayers>k__BackingField", MemberKind.Field, false, "multiplayer_lobby.max_players"),
 #else
         new(typeof(StartRunLobby), "_maxPlayers", MemberKind.Field, false, "multiplayer_lobby.max_players"),

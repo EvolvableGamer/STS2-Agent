@@ -5,7 +5,7 @@ using System.Text.Json;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Multiplayer.Game.Lobby;
-using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
+using MegaCrit.Sts2.Core.Nodes.Screens.CustomRun;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Runs;
@@ -15,7 +15,7 @@ using STS2AIAgent.Server;
 namespace STS2AIAgent.Game;
 
 // Game primitives only. No Arena task, participant, profile label, seed selection or run orchestration.
-internal static class GameControl
+internal static partial class GameControl
 {
     private static UnlockState? _requestedUnlocks;
     private static readonly string Nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -59,18 +59,19 @@ internal static class GameControl
     {
         var state = GameStateService.BuildStatePayload();
         var run = RunManager.Instance.DebugOnlyGetState();
-        var screen = ActiveScreenContext.Instance.GetCurrentScreen() as NCharacterSelectScreen;
+        var screen = ActiveScreenContext.Instance.GetCurrentScreen() as NCustomRunScreen;
         var player = run?.Players.FirstOrDefault();
         var unlocks = player?.UnlockState ?? _requestedUnlocks ?? new UnlockState(SaveManager.Instance.Progress);
         return new {
             protocol = "sts2-game-control/1", instance_id = InstanceId, game_build = "23811903",
-            game_version = "v0.107.1", screen = state.screen, active_run = run != null,
+            game_version = "v0.107.1", screen = screen != null ? "CUSTOM_RUN" : state.screen, active_run = run != null,
             has_saved_run = state.available_actions.Contains("continue_run"),
             seed = run?.Rng.StringSeed ?? screen?.Lobby.Seed,
             character_id = player?.Character.Id.Entry ?? screen?.Lobby.LocalPlayer.character.Id.Entry,
             ascension = run?.AscensionLevel ?? screen?.Lobby.Ascension,
             mode = (run?.GameMode ?? screen?.Lobby.GameMode)?.ToString().ToLowerInvariant() ?? "standard",
-            modifiers = run?.Modifiers.Select(m => m.Id.Entry).ToArray() ?? Array.Empty<string>(),
+            modifiers = (run?.Modifiers ?? screen?.Lobby.Modifiers)?.Select(m => m.Id.Entry).ToArray() ?? Array.Empty<string>(),
+            custom_unlocked = SaveManager.Instance.IsEpochRevealed<MegaCrit.Sts2.Core.Timeline.Epochs.CustomAndSeedsEpoch>(),
             fully_unlocked = unlocks.NumberOfRuns == UnlockState.all.NumberOfRuns && unlocks.Cards.Count() == UnlockState.all.Cards.Count(),
             unlocked_cards = unlocks.Cards.Count(), unlocked_characters = unlocks.Characters.Count(),
             discovered_act_ids = SaveManager.Instance.Progress.DiscoveredActs.Select(id => id.Entry).OrderBy(x => x).ToArray()
@@ -81,8 +82,8 @@ internal static class GameControl
         if (!Enabled || input.ValueKind != JsonValueKind.Object || !input.TryGetProperty("name", out var n)
             || n.ValueKind != JsonValueKind.String || !input.TryGetProperty("value", out var value))
             throw new ApiException(400, "invalid_setting", "A named game setting is required.");
-        if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCharacterSelectScreen screen || screen.Lobby.Players.Count != 1)
-            throw new ApiException(409, "setting_requires_lobby", "Set game conditions in single-player character select only.");
+        if (ActiveScreenContext.Instance.GetCurrentScreen() is not NCustomRunScreen screen || screen.Lobby.Players.Count != 1)
+            throw new ApiException(409, "setting_requires_lobby", "Set game conditions in single-player Custom only.");
         var lobby = screen.Lobby;
         switch (n.GetString())
         {
@@ -90,8 +91,7 @@ internal static class GameControl
                 var seed = value.GetString() ?? "";
                 if (seed.Length is < 1 or > 100 || seed.Any(c => !char.IsAsciiLetterOrDigit(c)))
                     throw new ApiException(400, "invalid_setting", "Expected a bounded alphanumeric seed.");
-                var property = ReflectedGameMembers.Property(typeof(StartRunLobby), "Seed") ?? throw new MissingMemberException("StartRunLobby.Seed");
-                property.SetValue(lobby, seed); // Standard UI SeedChanged callback is intentionally unsupported.
+                lobby.SetSeed(seed); // Custom supports the native SeedChanged callback.
                 break;
             case "character":
                 var character = ModelDb.AllCharacters.FirstOrDefault(c => c.Id.Entry == value.GetString())
