@@ -642,7 +642,8 @@ internal static class Router
                 var id=request.QueryString["action_id"];
                 if(string.IsNullOrWhiteSpace(id))throw new ApiException(400,"invalid_request","action_id is required.");
                 var status=ArenaControlledSession.Actions.Query(id);
-                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {action_id=id,status,coverage="bridge_confirmed_only"}});statusCode=200;return;
+                object? continuation=status=="pending"?new {parent_action_id=id,allowed_actions=new[]{"select_deck_card","confirm_selection"}}:null;
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {action_id=id,status,continuation,coverage="bridge_confirmed_only"}});statusCode=200;return;
             }            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/action")
             {
                 RequireBoundedBody(request);
@@ -650,18 +651,8 @@ internal static class Router
                 if (body?.request?.action==null || string.IsNullOrWhiteSpace(body.action_id))
                     throw new ApiException(400,"invalid_request","action_id and request.action are required.");
                 if (!ArenaControlledSession.AllowsAction(body.request.action)) throw new ApiException(403,"unsupported_action","Action is outside diagnostic coverage.");
-                ActionResponsePayload? result=null;
-                var status=await ArenaControlledSession.Actions.ExecuteAsync(body.action_id,body.request.action,body.request,async () => {
-                    result=await GameThread.InvokeAsync(async () => {
-                        return await GameActionService.ExecuteAsync(body.request, beforeDispatch: () => {
-                            var state=GameStateService.BuildStatePayload();
-                            ArenaControlledSession.CheckRun(state.run_id);
-                            ArenaControlledSession.CheckRewardExit(body.request.action!,state);
-                        }, arenaPermit: ArenaControlledSession.Permit);
-                    });
-                    return result.status;
-                });
-                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {status,result,coverage="bridge_confirmed_only"}});statusCode=200;return;
+                var data=await ArenaControlledSession.ExecuteControlAsync(body);
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data});statusCode=200;return;
             }
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/dev/unlock-checks")
             {

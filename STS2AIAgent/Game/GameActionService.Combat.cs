@@ -298,7 +298,7 @@ internal static partial class GameActionService
         return localPlayer != null && CombatManager.Instance.IsPlayerReadyToEndTurn(localPlayer);
     }
 
-    private static async Task<ActionResponsePayload> ExecutePlayCardAsync(ActionRequest request)
+    private static async Task<ActionResponsePayload> ExecutePlayCardAsync(ActionRequest request,Action<ArenaSelectionContinuation>? registerContinuation)
     {
         var currentScreen = ActiveScreenContext.Instance.GetCurrentScreen();
         var combatState = CombatManager.Instance.DebugOnlyGetState();
@@ -360,6 +360,8 @@ internal static partial class GameActionService
 
         var target = ResolveCardTarget(request, combatState, card);
 
+        var tracker=registerContinuation==null?null:new ArenaSelectionTracker(RunManager.Instance.ActionExecutor,card);
+        try {
         if (!card.TryManualPlay(target))
         {
             throw new ApiException(409, "invalid_action", "Card cannot be played in the current state.", new
@@ -380,7 +382,7 @@ internal static partial class GameActionService
         else if (cardType == "Skill") SkillsPlayedThisTurn++;
 
         var stable = await WaitForPlayCardTransitionAsync(card, TimeSpan.FromSeconds(12));
-        if (!stable)
+        if (!stable && !IsPlayCardAwaitingPlayerInput())
         {
             for (var attempt = 0; attempt < 8; attempt++)
             {
@@ -394,7 +396,7 @@ internal static partial class GameActionService
             }
         }
 
-        if (CardPlayCounterPolicy.ShouldRollBack(
+        if (!IsPlayCardAwaitingPlayerInput() && CardPlayCounterPolicy.ShouldRollBack(
                 playSettled: stable,
                 combatInProgress: CombatManager.Instance.IsInProgress,
                 cardStillInHand: card.Pile?.Type == PileType.Hand))
@@ -402,6 +404,7 @@ internal static partial class GameActionService
             RollBackCardPlayCounters(cardType);
         }
 
+        if(!stable&&IsPlayCardAwaitingPlayerInput()&&tracker?.PendingSelection() is { } pending){registerContinuation!(pending);tracker=null;}
         return new ActionResponsePayload
         {
             action = "play_card",
@@ -410,6 +413,7 @@ internal static partial class GameActionService
             message = stable ? "Action completed." : "Action queued but state is still transitioning.",
             state = GameStateService.BuildStatePayload()
         };
+        } finally {tracker?.Dispose();}
     }
 
     private static Creature? ResolveCardTarget(ActionRequest request, CombatState? combatState, CardModel card)
@@ -510,6 +514,7 @@ internal static partial class GameActionService
 
     private static bool IsPlayCardStable(CardModel card)
     {
+        if (IsPlayCardAwaitingPlayerInput()) return false;
         if (!CombatManager.Instance.IsInProgress)
         {
             return true;

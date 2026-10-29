@@ -1,5 +1,6 @@
 using System.Text.Json;
 namespace STS2AIAgent.Server;
+internal sealed record ArenaSelectionContinuation(Task<bool> Completion,Func<bool> CanContinue);
 // Controlled-action evidence only. It does not observe manual input or automatic game transitions.
 internal sealed class ArenaControlledActions : IDisposable
 {
@@ -11,6 +12,8 @@ internal sealed class ArenaControlledActions : IDisposable
  private readonly HashSet<string> _ids = new(StringComparer.Ordinal);
  private readonly Dictionary<string,string> _statuses = new(StringComparer.Ordinal);
  private bool _unresolved, _terminal;
+ private string? _unresolvedId,_childId;
+ private (string id,string action,object request,ArenaSelectionContinuation proof)? _pendingSelection;
  private ArenaFact? _terminalFact;
  public ArenaControlledActions(string directory,string stream,string run)
  {
@@ -24,8 +27,20 @@ internal sealed class ArenaControlledActions : IDisposable
   while(true) { var page=_requests.ReadAfter(cursor); if(page.Count==0)break; foreach(var record in page) {
    if(record.kind=="input_observed"){_inputIncident=1;cursor=record.source_seq;continue;}
    var id=record.payload.GetProperty("action_id").GetString() ?? throw new InvalidDataException("Missing action id");
-   if(record.kind=="requested") {if(!_ids.Add(id)||_unresolved)throw new InvalidDataException("Invalid request history");_statuses[id]="unknown";_unresolved=true;}
-   else if(record.kind=="resolved") {if(!_unresolved||!_ids.Contains(id))throw new InvalidDataException("Invalid resolution history");_statuses[id]="completed";_unresolved=false;}
+   if(record.kind=="requested") {
+    if(!_ids.Add(id))throw new InvalidDataException("Duplicate request");
+    var parent=record.payload.TryGetProperty("parent_action_id",out var p)?p.GetString():null;
+    if(parent!=null){if(!_unresolved||parent!=_unresolvedId||_childId!=null)throw new InvalidDataException("Invalid continuation history");_childId=id;}
+    else {if(_unresolved)throw new InvalidDataException("Invalid request history");_unresolved=true;_unresolvedId=id;}
+    _statuses[id]="unknown";
+   }
+   else if(record.kind=="resolved") {
+    if(!_unresolved||!_ids.Contains(id))throw new InvalidDataException("Invalid resolution history");
+    if(id==_childId)_childId=null;
+    else if(id==_unresolvedId&&_childId==null){_unresolved=false;_unresolvedId=null;}
+    else throw new InvalidDataException("Invalid resolution order");
+    _statuses[id]="completed";
+   }
    else throw new InvalidDataException("Unknown request history");
    cursor=record.source_seq;
   }}
@@ -36,30 +51,57 @@ internal sealed class ArenaControlledActions : IDisposable
   await _gate.WaitAsync();
   try {
    if(_facts.LastSequence!=0||_terminal||_unresolved||Volatile.Read(ref _inputIncident)!=0||_ids.Contains(id))throw new InvalidOperationException("Start already attempted");
-   _requests.Append("requested",new {action_id=id,action="start_task",request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
+   _requests.Append("requested",new {action_id=id,action="start_task",request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;_unresolvedId=id;
    var actual=await dispatch();
    ArenaFact fact;
    lock(_observationGate) {
     fact=_facts.Append("started",new {actual_conditions=actual,coverage="bridge_confirmed_only",complete=false});
     if(_pendingInput){_facts.Append("incident",new {code="external_input_during_start",coverage="partial",complete=false});_pendingInput=false;}
    }
-   _requests.Append("resolved",new {action_id=id,status="completed"});_statuses[id]="completed";_unresolved=false;
+   _requests.Append("resolved",new {action_id=id,status="completed"});_statuses[id]="completed";_unresolved=false;_unresolvedId=null;
    return fact;
   } finally {_gate.Release();}
  }
- public async Task<string> ExecuteAsync(string id,string action,object request,Func<Task<string>> dispatch)
+ public async Task<string> ExecuteAsync(string id,string action,object request,Func<Task<string>> dispatch,Func<ArenaSelectionContinuation?>? continuation=null)
  {
   if(string.IsNullOrWhiteSpace(id)||id.Length>128||string.IsNullOrWhiteSpace(action))throw new ArgumentException("Missing action id or action");
   await _gate.WaitAsync();
   try {
+   RefreshPendingSelection();
    if(_terminal||_unresolved||Volatile.Read(ref _inputIncident)!=0||_ids.Contains(id))throw new InvalidOperationException("Unresolved or duplicate action");
-   _requests.Append("requested",new {action_id=id,action,request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;
+   _requests.Append("requested",new {action_id=id,action,request});_ids.Add(id);_statuses[id]="unknown";_unresolved=true;_unresolvedId=id;
    var status=await dispatch();
-   if(status!="completed")return status;
+   if(status!="completed") {
+    var proof=status=="pending"&&action=="play_card" ? continuation?.Invoke() : null;
+    if(proof!=null){_pendingSelection=(id,action,request,proof);_statuses[id]="pending";}
+    return status;
+   }
    _facts.Append("operation",new {operation_id=id+"-operation",caused_by_action_id=id,origin="agent_interface",action,request,status="completed",coverage="bridge_confirmed_only"});
-   _requests.Append("resolved",new {action_id=id,status});_statuses[id]="completed";_unresolved=false;
+   _requests.Append("resolved",new {action_id=id,status});_statuses[id]="completed";_unresolved=false;_unresolvedId=null;
    return status;
   } finally {_gate.Release();}
+ }
+ public async Task<string> ExecuteContinuationAsync(string id,string parent,string action,object request,Func<Func<bool>,Task<string>> dispatch)
+ {
+  if(string.IsNullOrWhiteSpace(id)||id.Length>128||string.IsNullOrWhiteSpace(parent)||action is not ("select_deck_card" or "confirm_selection"))throw new InvalidOperationException("Invalid continuation");
+  await _gate.WaitAsync();
+  try {
+   RefreshPendingSelection();
+   if(_terminal||Volatile.Read(ref _inputIncident)!=0||_ids.Contains(id)||_childId!=null||_pendingSelection is not { } pending||pending.id!=parent||_unresolvedId!=parent)throw new InvalidOperationException("Continuation unavailable");
+   _requests.Append("requested",new {action_id=id,parent_action_id=parent,action,request});_ids.Add(id);_statuses[id]="unknown";_childId=id;
+   var status=await dispatch(pending.proof.CanContinue);
+   if(status!="completed")return status;
+   _facts.Append("operation",new {operation_id=id+"-operation",caused_by_action_id=id,origin="agent_interface",action,request,status="completed",coverage="bridge_confirmed_only"});
+   _requests.Append("resolved",new {action_id=id,status});_statuses[id]="completed";_childId=null;
+   return status;
+  } finally {_gate.Release();}
+ }
+ private void RefreshPendingSelection()
+ {
+  if(_pendingSelection is not { } pending||!pending.proof.Completion.IsCompleted)return;
+  if(_childId!=null||!pending.proof.Completion.IsCompletedSuccessfully||!pending.proof.Completion.Result){_statuses[pending.id]="unknown";_pendingSelection=null;return;}
+  _facts.Append("operation",new {operation_id=pending.id+"-operation",caused_by_action_id=pending.id,origin="agent_interface",action=pending.action,request=pending.request,status="completed",coverage="bridge_confirmed_only"});
+  _requests.Append("resolved",new {action_id=pending.id,status="completed"});_statuses[pending.id]="completed";_pendingSelection=null;_unresolved=false;_unresolvedId=null;
  }
  public ArenaFact Started(object actualConditions)
  {
@@ -103,7 +145,7 @@ internal sealed class ArenaControlledActions : IDisposable
    _facts.Append("incident",new {code="external_window_input",input_kind=kind,origin="unattributed",coverage="partial",complete=false});
   }
  }
- public string Query(string id) { _gate.Wait(); try {return _statuses.GetValueOrDefault(id,"not_found");} finally {_gate.Release();} }
+ public string Query(string id) { _gate.Wait(); try {RefreshPendingSelection();return _statuses.GetValueOrDefault(id,"not_found");} finally {_gate.Release();} }
  public IReadOnlyList<ArenaFact> ReadFacts(long afterSeq) { _gate.Wait(); try {return _facts.ReadAfter(afterSeq);} finally {_gate.Release();} }
  public void Dispose(){_requests.Dispose();_facts.Dispose();_gate.Dispose();}
 }

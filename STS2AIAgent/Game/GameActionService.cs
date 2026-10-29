@@ -90,7 +90,7 @@ internal static partial class GameActionService
     /// mod refusing every later request. <see cref="ActionExecutionGate"/> refuses a concurrent caller
     /// immediately instead of queueing it behind a snapshot the first action has already invalidated.
     /// </remarks>
-    public static async Task<ActionResponsePayload> ExecuteAsync(ActionRequest request, Action? beforeDispatch = null, object? arenaPermit = null)
+    public static async Task<ActionResponsePayload> ExecuteAsync(ActionRequest request, Action? beforeDispatch = null, object? arenaPermit = null, Action<ArenaSelectionContinuation>? registerContinuation = null)
     {
         var actionName = request.action?.Trim().ToLowerInvariant();
         var localPlayerId = System.Environment.GetEnvironmentVariable("STS2_MULTIPLAYER_NET_ID");
@@ -124,7 +124,7 @@ internal static partial class GameActionService
                 throw new ApiException(409, "arena_bypass", "A diagnostic controlled stream is active; this action is outside it.");
             }
             beforeDispatch?.Invoke();
-            return await DispatchAsync(actionName, request);
+            return await DispatchAsync(actionName, request, registerContinuation);
         }
         finally
         {
@@ -136,13 +136,13 @@ internal static partial class GameActionService
     /// The action dispatch table: one arm per accepted action name. Only this table stays in the base
     /// file; each handler lives in the partial for its room.
     /// </summary>
-    private static Task<ActionResponsePayload> DispatchAsync(string? actionName, ActionRequest request)
+    private static Task<ActionResponsePayload> DispatchAsync(string? actionName, ActionRequest request, Action<ArenaSelectionContinuation>? registerContinuation)
     {
         return actionName switch
         {
             "resolve_rewards" => ExecuteResolveRewardsAsync(request),
             "end_turn" => ExecuteEndTurnAsync(),
-            "play_card" => ExecutePlayCardAsync(request),
+            "play_card" => ExecutePlayCardAsync(request,registerContinuation),
             "switch_profile" => ExecuteSwitchProfileAsync(request),
             "continue_run" => ExecuteContinueRunAsync(),
             "continue_game_over" => ExecuteContinueGameOverAsync(),

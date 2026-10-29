@@ -7,7 +7,7 @@ namespace STS2AIAgent.Server;
 internal sealed record ArenaCustomSetup(string mode,string? seed,string? character_id,int ascension,string[] modifiers,int native_profile_id);
 internal sealed class ArenaStartRequest { public string? command_id {get; init;} public JsonElement task {get; init;} }
 internal sealed class ArenaControlledBindRequest { public string? stream_id { get; init; } public string? game_run_ref { get; init; } }
-internal sealed class ArenaControlledActionRequest { public string? action_id { get; init; } public ActionRequest? request { get; init; } }
+internal sealed class ArenaControlledActionRequest { public string? action_id { get; init; } public string? parent_action_id {get; init;} public ActionRequest? request { get; init; } }
 internal static class ArenaControlledSession
 {
  private static readonly HashSet<string> AllowedActions = new(StringComparer.Ordinal) {
@@ -17,6 +17,23 @@ internal static class ArenaControlledSession
   "decline_tutorials","close_cards_view","confirm_unlock","continue_game_over"
  };
  internal static bool AllowsAction(string? action)=>action!=null&&AllowedActions.Contains(action);
+ internal static async Task<object> ExecuteControlAsync(ArenaControlledActionRequest body)
+ {
+  ActionResponsePayload? result=null;ArenaSelectionContinuation? proof=null;
+  async Task<string> Dispatch(Func<bool>? guard) {
+   result=await GameThread.InvokeAsync(async () => await GameActionService.ExecuteAsync(body.request!,beforeDispatch: () => {
+    var state=GameStateService.BuildStatePayload();CheckRun(state.run_id);CheckRewardExit(body.request!.action!,state);
+    if(guard!=null&&!guard())throw new ApiException(409,"continuation_unavailable","Native selection is no longer awaiting input.");
+   },arenaPermit:Permit,registerContinuation:body.parent_action_id==null?value=>proof=value:null));
+   return result.status;
+  }
+  var status=body.parent_action_id==null
+   ?await Actions.ExecuteAsync(body.action_id!,body.request!.action!,body.request,()=>Dispatch(null),()=>proof)
+   :await Actions.ExecuteContinuationAsync(body.action_id!,body.parent_action_id,body.request!.action!,body.request,guard=>Dispatch(guard));
+  var savedStatus=Actions.Query(body.action_id!);if(status=="pending"&&savedStatus=="completed")status="completed";
+  object? continuation=status=="pending"&&savedStatus=="pending"?new {parent_action_id=body.action_id,allowed_actions=new[]{"select_deck_card","confirm_selection"}}:null;
+  return new {status,result,continuation,coverage="bridge_confirmed_only"};
+ }
  internal static void CheckRewardExit(string action,GameStatePayload state)
  {
   if(action!="collect_rewards_and_proceed")return;

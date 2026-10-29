@@ -1075,6 +1075,12 @@ internal static class TestRunner
         yield return ("ArenaReplay.Reflection", () => Task.Run(ArenaLiveReplaySnapshotTests.ReflectionOnlyInvokesExpectedStaticShape));
         yield return ("ArenaReplay.Preflight", () => Task.Run(ArenaLiveReplaySnapshotTests.PreflightChecksUniqueAssemblyAndSignatureWithoutInvokingSnapshot));
         yield return ("ArenaReplay.BoundHealth", () => Task.Run(ArenaLiveReplaySnapshotTests.LiveBindingRequiresOriginalObjectsAndDurableStart));
+        yield return ("ArenaSelection.ParentAndChildren", ArenaSelectionContinuationTests.ParentStaysPendingUntilNativeCompletionAndChildrenAreRecorded);
+        yield return ("ArenaSelection.RestartUnknown", ArenaSelectionContinuationTests.UnknownChildOrRestartNeverResolvesOrAllowsContinuation);
+        yield return ("ArenaSelection.Faulted", ArenaSelectionContinuationTests.FaultedNativeCompletionStaysUnknown);
+        yield return ("ArenaSelection.RestartAfterChild", ArenaSelectionContinuationTests.RestartAfterCompletedChildCannotRecoverParentProof);
+        yield return ("ArenaSelection.StaleGuard", ArenaSelectionContinuationTests.StaleSelectionGuardLeavesUnknownAndBlocksFurtherChoices);
+        yield return ("ArenaSelection.OpenIsNotStable", () => Task.Run(ArenaSelectionContinuationTests.OpenSelectionCannotBeConsideredStable));
         yield return ("ArenaReward.EmptyExit", () => Task.Run(ArenaRewardExitPolicyTests.AllowsOnlyEmptyCompletedReward));
         yield return ("ArenaSeed.Validation", () => Task.Run(ArenaSeedPolicyTests.RejectsBlankOrOversize));
         yield return ("ArenaActions.UnresolvedRestart", ArenaControlledActionsTests.UnresolvedSurvivesRestart);

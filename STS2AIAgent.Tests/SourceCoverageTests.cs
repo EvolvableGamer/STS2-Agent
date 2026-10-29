@@ -25,6 +25,7 @@ internal static class SourceCoverageTests
         // The diagnostic session depends on game and Godot types, so it is not linked into offline tests.
         "STS2AIAgent/Server/ArenaControlledSession.cs",
         "STS2AIAgent/Game/ArenaWindowInputObserver.cs",
+        "STS2AIAgent/Game/ArenaSelectionTracker.cs",
         "STS2AIAgent/Game/GameStateService.cs",
         "STS2AIAgent/Game/GameStateService.Predicates.cs",
         // The raw /state builders, split by screen on 2026-09-20. They stay unlinked for the same

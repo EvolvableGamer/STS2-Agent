@@ -534,6 +534,7 @@ Tools are **synchronous**; don't make them async. Wire keys stay spelled the way
 - `STS2AIAgent/Game/ArenaRewardExitPolicy.cs`: guards the controlled reward-exit macro against unrecorded claims.
 - `STS2AIAgent/Server/ArenaTerminalPolicy.cs`: checks natural terminal eligibility before recording native result.
 - `STS2AIAgent/Server/ArenaLiveReplaySnapshot.cs`: validates a process-bound natural-terminal snapshot and safely reads the loaded RunReplays buffer.
+- `STS2AIAgent/Game/ArenaSelectionTracker.cs`: ties a pending card choice and completion to the exact native play action.
 - `STS2AIAgent/Game/ArenaInputPolicy.cs`: filters observed input presses without key repeats.
 - `STS2AIAgent/Game/ArenaWindowInputObserver.cs`: limited pre-Viewport window input observation; not proof of complete input coverage.
 - `STS2AIAgent/Game/ArenaUnlockPolicy.cs`: exact isolated identity and explicit opt-in for reversible development unlock.
