@@ -38,6 +38,9 @@ public static class ModEntry
             GameThread.Initialize();
 #if STS2_PUBLIC_23811903
             GameControl.Install();
+#if STS2_RECORDING_PROBE
+            RecordingProbe.Install();
+#endif
 #endif
             GameEventService.Instance.Start();
             HttpServer.Instance.Start();

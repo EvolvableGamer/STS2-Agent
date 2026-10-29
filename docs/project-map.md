@@ -525,3 +525,6 @@ Tools are **synchronous**; don't make them async. Wire keys stay spelled the way
 - `STS2AIAgent/Server/CompanionStartupFile.cs` — publish initialization, listener or failure state to the host-selected session path.
 - `STS2AIAgent/Server/InstanceEndpointFile.cs` — publish and remove PID/role/port hints for local MCP discovery.
 - `mcp_server/src/sts2_mcp/discovery.py` — validate local endpoint hints against /health and resolve a role or PID without guessing an ambiguous instance.
+
+- `STS2AIAgent/Game/GameControl.Custom.cs` — isolated native Custom menu, epoch unlock and start receipts.
+- `STS2AIAgent/Game/GameStartCommandStore.cs` — private durable game command IDs, no competition task.

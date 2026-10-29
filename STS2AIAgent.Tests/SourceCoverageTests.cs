@@ -94,6 +94,9 @@ internal static class SourceCoverageTests
         "STS2AIAgent/Ui/AgentOverlayHost.PlayControl.cs",
         "STS2AIAgent/Ui/AgentOverlayHost.Setup.cs",
         "STS2AIAgent/Game/NativeCoopLoadGuard.cs",
+        // Isolated game settings need live Godot/game assemblies; build and Mac HTTP integration cover them.
+        "STS2AIAgent/Game/GameControl.cs",
+        "STS2AIAgent/Game/GameControl.Custom.cs",
         // The conversation card (chat log rendering, scroll-to-bottom, the chat-side option row). A
         // Godot control builder, unlinked like the pages file it was split out of.
         "STS2AIAgent/Ui/AgentOverlayHost.ChatCard.cs",

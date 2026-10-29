@@ -502,6 +502,8 @@ internal static class TestRunner
         yield return ("CombatPower.ExhaustedCounter", () => Task.Run(CombatPowerPayloadTests.PreservesExhaustedNativeCounter));
         yield return ("CombatPower.UnknownCounter", () => Task.Run(CombatPowerPayloadTests.KeepsUnavailableNativeCounterUnknown));
         yield return ("CombatPower.NativeWiring", () => Task.Run(CombatPowerPayloadTests.StateReadsTheNativeCounterWithoutFallback));
+        yield return ("GameStart.IntentRecovery", () => Task.Run(GameStartCommandStoreTests.IntentSurvivesReconstructionWithoutReplay));
+        yield return ("GameStart.TornResult", () => Task.Run(GameStartCommandStoreTests.TornResultAndUnsafeIdFailClosed));
         yield return ("CombatReadiness.RejectsHandoff", () => Task.Run(CombatTurnReadinessPolicyTests.RejectsPartialDrawDuringTurnHandoff));
         yield return ("CombatReadiness.RejectsPreTurn", () => Task.Run(CombatTurnReadinessPolicyTests.RejectsPreTurnEmptyHandEvenWhenButtonLooksReady));
         yield return ("CombatReadiness.KeepsOpeningGuard", () => Task.Run(CombatTurnReadinessPolicyTests.KeepsOpeningDrawGuardWhenNoNativeReadyEvidenceExists));
