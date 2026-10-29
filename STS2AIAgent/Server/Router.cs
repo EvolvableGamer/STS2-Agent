@@ -57,6 +57,17 @@ internal static class Router
                     "Requests from web pages or non-loopback hosts are refused.");
             }
 
+#if STS2_RECORDING_PROBE
+            if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/game/control/probe-cancel-selection")
+            {
+                if (!request.IsLocal || !Game.GameControl.Authorized(request.Headers["X-STS2-Game-Control"]))
+                    throw new ApiException(403, "game_control_required", "Isolated game-control capability required.");
+                var probe = await Game.GameThread.InvokeAsync(Game.RecordingProbe.CancelUnselectedGrid, cancellationToken);
+                await WriteJsonAsync(response, 200, new { ok = true, request_id = requestId, data = probe });
+                statusCode = 200;
+                return;
+            }
+#endif
 #if STS2_PUBLIC_23811903
             if (request.Url?.AbsolutePath is "/game/control/info" or "/game/control/catalog" or "/game/control/setting" or "/game/control/open-custom" or "/game/control/start" or "/game/control/unlock-custom")
             {

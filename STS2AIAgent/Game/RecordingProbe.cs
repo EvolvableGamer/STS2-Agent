@@ -4,6 +4,14 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using HarmonyLib;
+using Godot;
+using FileAccess = System.IO.FileAccess;
+using MegaCrit.Sts2.Core.Nodes.CommonUi;
+using MegaCrit.Sts2.Core.Nodes.Potions;
+using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Screens.CardSelection;
+using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
+using STS2AIAgent.Server;
 using MegaCrit.Sts2.Core.GameActions;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 
@@ -16,6 +24,7 @@ internal static class RecordingProbe
     private static readonly object Gate = new();
     private static readonly ConditionalWeakTable<object, Frame> Actions = new();
     private static long _seq, _op;
+    private static readonly AsyncLocal<string?> ScopedOrigin = new();
     private static string? _path;
     public static void Install()
     {
@@ -43,6 +52,10 @@ internal static class RecordingProbe
             ["MegaCrit.Sts2.Core.Nodes.Screens.CardSelection.NCardRewardSelectionScreen"] = ["SelectCard", "OnAlternateRewardSelected"],
             ["MegaCrit.Sts2.Core.Nodes.Combat.NPlayerHand"] = ["SelectCards"],
             ["MegaCrit.Sts2.Core.Models.CardModel"] = ["TryManualPlay", "EnqueueManualPlay", "ToMutable", "UpgradeInternal"],
+            ["MegaCrit.Sts2.Core.Nodes.Screens.CardSelection.NDeckCardSelectScreen"] = ["CloseSelection", "CancelSelection", "ConfirmSelection"],
+            ["MegaCrit.Sts2.Core.Nodes.Screens.CardSelection.NDeckUpgradeSelectScreen"] = ["CloseSelection", "CancelSelection", "ConfirmSelection"],
+            ["MegaCrit.Sts2.Core.Nodes.Potions.NPotionPopup"] = ["OnUseButtonPressed", "UsePotion", "_Input"],
+            ["MegaCrit.Sts2.Core.Nodes.Potions.NPotionHolder"] = ["UsePotion"],
             ["MegaCrit.Sts2.Core.Nodes.Combat.NCardPlay"] = ["TryPlayCard", "CancelPlayCard"],
             ["MegaCrit.Sts2.Core.Nodes.Combat.NMouseCardPlay"] = ["_Input"],
             ["MegaCrit.Sts2.Core.Runs.RunHistoryUtilities"] = ["CreateRunHistoryEntry"],
@@ -65,8 +78,38 @@ internal static class RecordingProbe
                 }
             }
         }
+        harmony.Patch(AccessTools.Method(typeof(NPotionPopup), "RefreshButtons"),
+            postfix: new HarmonyMethod(typeof(RecordingProbe), nameof(PotionButtonsRefreshed)));
         harmony.Patch(AccessTools.Constructor(typeof(ActionExecutor), [typeof(ActionQueueSet)]),
             postfix: new HarmonyMethod(typeof(RecordingProbe), nameof(ExecutorCreated)));
+    }
+    // Test adapter only, not a released API: exercise the same native Back-button path as UI.
+    public static object CancelUnselectedGrid()
+    {
+        var current = ActiveScreenContext.Instance.GetCurrentScreen();
+        if (!GameControl.Enabled || current is not (NDeckCardSelectScreen or NDeckUpgradeSelectScreen) ||
+            !GameStateService.TryGetCardGridSelectionMetadata(current, out var metadata) || metadata.SelectedCount != 0)
+            throw new ApiException(409, "probe_cancel_unavailable", "Known unselected native grid required.");
+        var buttons = Descendants((Node)current).OfType<NBackButton>().Where(b => b.IsEnabled && b.IsVisibleInTree()).ToArray();
+        if (buttons.Length != 1) throw new ApiException(409, "probe_cancel_unavailable", "One native Back button required.");
+        var prior = ScopedOrigin.Value; ScopedOrigin.Value = "interface";
+        try { buttons[0].EmitSignal(NClickableControl.SignalName.Released, buttons[0]); }
+        finally { ScopedOrigin.Value = prior; }
+        return new { dispatch = "accepted", experimental = true, complete = false };
+    }
+    private static IEnumerable<Node> Descendants(Node parent)
+    {
+        foreach (Node child in parent.GetChildren())
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+    }
+    private static void PotionButtonsRefreshed(NPotionPopup __instance)
+    {
+        var button = __instance.GetNodeOrNull<NButton>("%UseButton");
+        Write(new { kind = "ui_diagnostic", method = "NPotionPopup.RefreshButtons", use_enabled = button?.IsEnabled,
+            use_rect = button?.GetGlobalRect().ToString(), marked_for_removal = __instance.IsMarkedForRemoval });
     }
     private static void ExecutorCreated(ActionExecutor __instance)
     {
@@ -81,6 +124,8 @@ internal static class RecordingProbe
     private static string Describe(object? value)
     {
         if (value == null) return "null";
+        if (value is InputEventMouseButton mouse) return $"mouse:{mouse.ButtonIndex}:pressed={mouse.Pressed}:position={mouse.Position}";
+        if (value is InputEvent input) return input.AsText();
         var text = value.ToString() ?? value.GetType().Name;
         return text.Length > 240 ? text[..240] : text;
     }
@@ -88,8 +133,8 @@ internal static class RecordingProbe
     {
         var stack = new StackTrace().GetFrames().Select(f => f.GetMethod()).Where(m => m?.DeclaringType != null)
             .Select(m => m!.DeclaringType!.FullName + "." + m.Name).Where(n => !n.Contains(nameof(RecordingProbe))).Take(35).ToArray();
-        var origin = stack.Any(s => s.Contains("GameActionService")) ? "interface" :
-            stack.Any(s => s.Contains("NEventOptionButton") || s.Contains("NRestSiteButton") || s.Contains("CardPlay") || s.Contains("NEndTurnButton") || s.Contains("NMapPoint") || s.Contains("NMerchant") || s.Contains("NRewardButton") || s.Contains("NCardRewardSelectionScreen")) ? "ui_candidate" : "unknown";
+        var origin = ScopedOrigin.Value ?? (stack.Any(s => s.Contains("GameActionService")) ? "interface" :
+            stack.Any(s => s.Contains("NEventOptionButton") || s.Contains("NRestSiteButton") || s.Contains("CardPlay") || s.Contains("NEndTurnButton") || s.Contains("NMapPoint") || s.Contains("NMerchant") || s.Contains("NPotion") || s.Contains("NRewardButton") || s.Contains("NCardRewardSelectionScreen")) ? "ui_candidate" : "unknown");
         __state = new Frame(Interlocked.Increment(ref _op), __originalMethod.DeclaringType!.Name + "." + __originalMethod.Name, origin, stack, __args.Select(Describe).ToArray());
         if (__originalMethod.Name is "RequestEnqueue" or "RequestEnqueueHookAction" && __args.FirstOrDefault() is GameAction action)
         { Actions.Remove(action); Actions.Add(action, __state); }
