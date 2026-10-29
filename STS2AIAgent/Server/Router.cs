@@ -589,6 +589,11 @@ internal static class Router
                 var facts=ArenaControlledSession.Read(after);
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {facts,coverage="bridge_confirmed_only",complete=false,bypass_attempt=ArenaControlledSession.HasBypass}});statusCode=200;return;
             }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/replay-health")
+            {
+                var ready=ArenaLiveReplaySnapshot.Preflight(AppDomain.CurrentDomain.GetAssemblies());
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {source="runreplays-live-buffer/1",ready,complete=false}});statusCode=200;return;
+            }
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/replay-snapshot")
             {
                 var commandId=request.QueryString["command_id"];

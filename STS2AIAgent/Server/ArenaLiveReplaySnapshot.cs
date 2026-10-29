@@ -6,6 +6,15 @@ internal sealed record ArenaLiveReplayBinding(object Run,object Executor,string 
 internal sealed record ArenaLiveReplayResult(string stream_id,string game_run_ref,string source,string content,int action_count,bool complete);
 internal static class ArenaLiveReplaySnapshot
 {
+ internal static bool Preflight(IEnumerable<Assembly> assemblies)
+ {
+  try {
+   var matching=assemblies.Where(a=>a.GetName().Name=="RunReplays").ToArray();
+   if(matching.Length!=1)return false;
+   _=Resolve(matching[0].GetType("RunReplays.PlayerActionBuffer",false));
+   return true;
+  } catch {return false;}
+ }
  internal static ArenaLiveReplayResult Build(ArenaLiveReplayBinding binding,object? run,object? executor,string stream,string? seed,string? character,int? ascension,bool naturalTerminal,Func<IReadOnlyList<string>> read)
  {
   if(run==null||executor==null||!ReferenceEquals(binding.Run,run)||!ReferenceEquals(binding.Executor,executor)||
@@ -27,7 +36,7 @@ internal static class ArenaLiveReplaySnapshot
  internal static Func<IReadOnlyList<string>> Resolve(Type? type)
  {
   var method=type?.GetMethod("SnapshotMinimal",BindingFlags.Public|BindingFlags.Static,null,Type.EmptyTypes,null);
-  if(method==null||!typeof(IReadOnlyList<string>).IsAssignableFrom(method.ReturnType))throw new InvalidOperationException("RunReplays snapshot unavailable");
+  if(method==null||method.ContainsGenericParameters||!typeof(IReadOnlyList<string>).IsAssignableFrom(method.ReturnType))throw new InvalidOperationException("RunReplays snapshot unavailable");
   return ()=>method.Invoke(null,null) as IReadOnlyList<string> ?? throw new InvalidOperationException("RunReplays snapshot unavailable");
  }
 }

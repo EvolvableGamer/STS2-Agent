@@ -1,4 +1,6 @@
 using STS2AIAgent.Server;
+using System.Reflection;
+using System.Reflection.Emit;
 namespace STS2AIAgent.Tests;
 internal static class ArenaLiveReplaySnapshotTests
 {
@@ -37,5 +39,27 @@ internal static class ArenaLiveReplaySnapshotTests
  {
   Assert.Equal("EndTurn",ArenaLiveReplaySnapshot.Resolve(typeof(Buffer))()[0]);
   Reject(()=>ArenaLiveReplaySnapshot.Resolve(typeof(BadBuffer)));Reject(()=>ArenaLiveReplaySnapshot.Resolve(null));
+ }
+ private static Assembly FakeAssembly(string name,bool addType=true,Type? resultType=null)
+ {
+  var assembly=AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name),AssemblyBuilderAccess.Run);
+  var module=assembly.DefineDynamicModule(name);
+  if(addType){
+   var type=module.DefineType("RunReplays.PlayerActionBuffer",TypeAttributes.Public|TypeAttributes.Class);
+   var method=type.DefineMethod("SnapshotMinimal",MethodAttributes.Public|MethodAttributes.Static,resultType??typeof(IReadOnlyList<string>),Type.EmptyTypes);
+   var il=method.GetILGenerator();il.Emit(OpCodes.Newobj,typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!);il.Emit(OpCodes.Throw);
+   type.CreateType();
+  }
+  return assembly;
+ }
+ public static void PreflightChecksUniqueAssemblyAndSignatureWithoutInvokingSnapshot()
+ {
+  var valid=FakeAssembly("RunReplays");
+  Assert.True(ArenaLiveReplaySnapshot.Preflight(new[]{valid}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(Array.Empty<Assembly>()));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("Other")}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",false)}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{FakeAssembly("RunReplays",true,typeof(string))}));
+  Assert.False(ArenaLiveReplaySnapshot.Preflight(new[]{valid,FakeAssembly("RunReplays")}));
  }
 }

@@ -1073,6 +1073,7 @@ internal static class TestRunner
         yield return ("ArenaReplay.Guard", () => Task.Run(ArenaLiveReplaySnapshotTests.GuardRejectsBeforeReadingBuffer));
         yield return ("ArenaReplay.InputBounds", () => Task.Run(ArenaLiveReplaySnapshotTests.RejectsEmptyOversizedOrMalformedBuffer));
         yield return ("ArenaReplay.Reflection", () => Task.Run(ArenaLiveReplaySnapshotTests.ReflectionOnlyInvokesExpectedStaticShape));
+        yield return ("ArenaReplay.Preflight", () => Task.Run(ArenaLiveReplaySnapshotTests.PreflightChecksUniqueAssemblyAndSignatureWithoutInvokingSnapshot));
         yield return ("ArenaReward.EmptyExit", () => Task.Run(ArenaRewardExitPolicyTests.AllowsOnlyEmptyCompletedReward));
         yield return ("ArenaSeed.Validation", () => Task.Run(ArenaSeedPolicyTests.RejectsBlankOrOversize));
         yield return ("ArenaActions.UnresolvedRestart", ArenaControlledActionsTests.UnresolvedSurvivesRestart);
