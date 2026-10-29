@@ -556,6 +556,9 @@ internal static class Router
                     var state=await GameActionService.StartArenaCustomAsync(seed);
                     if(state.run_id!=seed||state.run?.character_id!=character||state.run.ascension!=ascension)
                         throw new ApiException(503,"start_unknown","Started run does not match requested conditions.");
+                     var liveRun=RunManager.Instance.DebugOnlyGetState() ?? throw new ApiException(503,"start_unknown","Live run unavailable.");
+                     var liveExecutor=RunManager.Instance.ActionExecutor ?? throw new ApiException(503,"start_unknown","Live action executor unavailable.");
+                     ArenaControlledSession.CaptureLiveRun(ArenaControlledSession.StartStream(body.command_id),liveRun,liveExecutor,seed,character,ascension);
                     return (object)new {seed=new {original=original.GetString(),normalized=state.run_id},game_build=gameBuild,character_id=state.run.character_id,ascension=state.run.ascension,mode=setup.mode,modifiers=setup.modifiers,unlock_profile_ref=$"profile-{setup.native_profile_id}",evidence="native_custom_setup_and_run"};
                 }));
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {outcome="executed",actual_conditions=fact.payload.GetProperty("actual_conditions"),stream_id=fact.stream_id,game_run_ref=fact.game_run_ref,coverage="bridge_confirmed_only",complete=false}});statusCode=200;return;
@@ -585,6 +588,32 @@ internal static class Router
                     throw new ApiException(400,"invalid_cursor","A nonnegative after_seq is required.");
                 var facts=ArenaControlledSession.Read(after);
                 await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=new {facts,coverage="bridge_confirmed_only",complete=false,bypass_attempt=ArenaControlledSession.HasBypass}});statusCode=200;return;
+            }
+            if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/arena/controlled/replay-snapshot")
+            {
+                var commandId=request.QueryString["command_id"];
+                if(string.IsNullOrWhiteSpace(commandId))throw new ApiException(400,"invalid_request","command_id is required.");
+                var stream=ArenaControlledSession.StartStream(commandId);
+                var binding=ArenaControlledSession.LiveRun(stream);
+                var started=ArenaControlledSession.Actions.ReadFacts(0).FirstOrDefault(f=>f.kind=="started");
+                if(started==null||started.stream_id!=stream||started.game_run_ref!=binding.Seed)throw new ApiException(409,"binding_mismatch","Started fact unavailable.");
+                var actual=started.payload.GetProperty("actual_conditions");
+                if(actual.GetProperty("seed").GetProperty("normalized").GetString()!=binding.Seed||
+                   !string.Equals(actual.GetProperty("character_id").GetString(),binding.Character,StringComparison.OrdinalIgnoreCase)||
+                   actual.GetProperty("ascension").GetInt32()!=binding.Ascension)throw new ApiException(409,"binding_mismatch","Started conditions do not match live binding.");
+                var result=await GameThread.InvokeAsync(() => {
+                    var state=GameStateService.BuildStatePayload();var history=RunManager.Instance.History;
+                    ArenaControlledSession.CheckRun(state.run_id);
+                    var natural=ArenaTerminalPolicy.Allows(history!=null,history?.WasAbandoned??true,state.game_over?.phase=="summary_ready",history?.Seed==state.run_id,state.game_over?.floor);
+                    var assemblies=AppDomain.CurrentDomain.GetAssemblies().Where(a=>a.GetName().Name=="RunReplays").ToArray();
+                    if(assemblies.Length!=1)throw new ApiException(503,"replay_unavailable","RunReplays is not available.");
+                    Func<IReadOnlyList<string>> read;
+                    try {read=ArenaLiveReplaySnapshot.Resolve(assemblies[0].GetType("RunReplays.PlayerActionBuffer",false));}
+                    catch(Exception) {throw new ApiException(503,"replay_unavailable","RunReplays snapshot is unavailable.");}
+                    try {return ArenaLiveReplaySnapshot.Build(binding,RunManager.Instance.DebugOnlyGetState(),RunManager.Instance.ActionExecutor,stream,state.run_id,state.run?.character_id,state.run?.ascension,natural,read);}
+                    catch(Exception) {throw new ApiException(409,"replay_snapshot_unavailable","Terminal snapshot is unavailable.");}
+                });
+                await WriteJsonAsync(response,200,new {ok=true,request_id=requestId,data=result});statusCode=200;return;
             }
             if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/arena/controlled/terminal")
             {

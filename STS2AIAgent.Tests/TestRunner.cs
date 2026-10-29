@@ -1069,6 +1069,10 @@ internal static class TestRunner
         yield return ("ArenaStart.First", () => Task.Run(ArenaControlledActionsTests.StartedMustBeFirst));
         yield return ("ArenaTerminal.FinalSequence", () => Task.Run(ArenaControlledActionsTests.TerminalIsSequencedAndFinal));
         yield return ("ArenaTerminal.NaturalSummary", () => Task.Run(ArenaTerminalPolicyTests.RequiresHistoryAndNaturalSummary));
+        yield return ("ArenaReplay.ValidSnapshot", () => Task.Run(ArenaLiveReplaySnapshotTests.ValidSnapshotUsesExactBoundRunAndPreservesActions));
+        yield return ("ArenaReplay.Guard", () => Task.Run(ArenaLiveReplaySnapshotTests.GuardRejectsBeforeReadingBuffer));
+        yield return ("ArenaReplay.InputBounds", () => Task.Run(ArenaLiveReplaySnapshotTests.RejectsEmptyOversizedOrMalformedBuffer));
+        yield return ("ArenaReplay.Reflection", () => Task.Run(ArenaLiveReplaySnapshotTests.ReflectionOnlyInvokesExpectedStaticShape));
         yield return ("ArenaReward.EmptyExit", () => Task.Run(ArenaRewardExitPolicyTests.AllowsOnlyEmptyCompletedReward));
         yield return ("ArenaSeed.Validation", () => Task.Run(ArenaSeedPolicyTests.RejectsBlankOrOversize));
         yield return ("ArenaActions.UnresolvedRestart", ArenaControlledActionsTests.UnresolvedSurvivesRestart);

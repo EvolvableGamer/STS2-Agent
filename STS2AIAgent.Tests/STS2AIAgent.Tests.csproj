@@ -146,6 +146,7 @@
     <Compile Include="..\STS2AIAgent\Game\ArenaInputPolicy.cs" Link="Game\ArenaInputPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Game\ArenaSeedPolicy.cs" Link="Game\ArenaSeedPolicy.cs" />
     <Compile Include="..\STS2AIAgent\Server\ArenaTerminalPolicy.cs" Link="Server\ArenaTerminalPolicy.cs" />
+    <Compile Include="..\STS2AIAgent\Server\ArenaLiveReplaySnapshot.cs" Link="Server\ArenaLiveReplaySnapshot.cs" />
     <Compile Include="..\STS2AIAgent\Server\ArenaControlledActions.cs" Link="Server\ArenaControlledActions.cs" />
     <Compile Include="..\STS2AIAgent\Server\ArenaFactJournal.cs" Link="Server\ArenaFactJournal.cs" />
     <Compile Include="..\STS2AIAgent\Server\JsonHelper.cs" Link="Server\JsonHelper.cs" />

@@ -35,6 +35,18 @@ internal static class ArenaControlledSession
  private static readonly object Gate=new();
  private static ArenaControlledActions? _actions;
  private static string? _stream,_run;
+ private static ArenaLiveReplayBinding? _liveReplay;
+ internal static void CaptureLiveRun(string stream,object run,object executor,string seed,string character,int ascension)
+ {
+  lock(Gate) {
+   if(_stream!=stream||_run!=seed||_liveReplay!=null)throw new ApiException(409,"binding_mismatch","Live run binding unavailable.");
+   _liveReplay=new ArenaLiveReplayBinding(run,executor,stream,seed,character,ascension);
+  }
+ }
+ internal static ArenaLiveReplayBinding LiveRun(string stream)
+ {
+  lock(Gate) return _liveReplay is { } binding&&binding.Stream==stream ? binding : throw new ApiException(409,"live_run_unavailable","Live run is unavailable or belongs to another start.");
+ }
  internal static string StartStream(string commandId)
  {
   if(string.IsNullOrWhiteSpace(commandId)||commandId.Length>128)throw new ApiException(400,"invalid_request","Invalid command ID.");
