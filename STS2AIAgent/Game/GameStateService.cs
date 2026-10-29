@@ -201,13 +201,14 @@ internal static partial class GameStateService
                 modal,
                 gameOver)
         };
-
+#if STS2_PUBLIC_23811903
+        payload.game_state_token = GameControl.TokenFor(payload);
+#endif
         var slowBuild = StateBuildTiming.Instance.Record(buildTimer.Elapsed.TotalMilliseconds, screen, DateTime.UtcNow);
         if (slowBuild != null)
         {
             Log.Warn($"[STS2AIAgent] {slowBuild}");
         }
-
         return payload;
     }
 

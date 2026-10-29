@@ -57,6 +57,29 @@ internal static class Router
                     "Requests from web pages or non-loopback hosts are refused.");
             }
 
+#if STS2_PUBLIC_23811903
+            if (request.Url?.AbsolutePath is "/game/control/info" or "/game/control/catalog" or "/game/control/setting")
+            {
+                if (!request.IsLocal || !Game.GameControl.Authorized(request.Headers["X-STS2-Game-Control"]))
+                    throw new ApiException(403, "game_control_required", "An isolated game-control capability is required.");
+                object result;
+                if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/game/control/info")
+                    result = await Game.GameThread.InvokeAsync(Game.GameControl.Info, cancellationToken);
+                else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/game/control/catalog")
+                    result = await Game.GameThread.InvokeAsync(Game.GameControl.Catalog, cancellationToken);
+                else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/game/control/setting")
+                {
+                    if (request.ContentLength64 < 0 || request.ContentLength64 > 4096)
+                        throw new ApiException(400, "invalid_setting", "A bounded game setting is required.");
+                    var setting = await ReadJsonBodyAsync<System.Text.Json.JsonElement>(request, cancellationToken);
+                    result = await Game.GameThread.InvokeAsync(() => Game.GameControl.Set(setting), cancellationToken);
+                }
+                else throw new ApiException(405, "method_not_allowed", "Unsupported game-control method.");
+                await WriteJsonAsync(response, 200, new { ok = true, request_id = requestId, data = result });
+                statusCode = 200;
+                return;
+            }
+#endif
             if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/companion/jev")
             {
                 if (!InstanceRole.IsCompanion || !request.IsLocal || !CompanionConnection.IsAuthorized(
@@ -547,7 +570,12 @@ internal static class Router
                 {
                     var before = GameStateService.BuildStatePayload();
                     AgentRuntime.Instance.ObserveSessionStateSnapshot(before.run_id, before.screen, before.session.phase);
+#if STS2_PUBLIC_23811903
+                    var result = await GameActionService.ExecuteAsync(actionRequest,
+                        beforeDispatch: () => Game.GameControl.ValidateExpected(actionRequest.client_context));
+#else
                     var result = await GameActionService.ExecuteAsync(actionRequest);
+#endif
                     return (before.run_id, result);
                 });
                 var decisionReason = DecisionContext.ReadReason(actionRequest.client_context);

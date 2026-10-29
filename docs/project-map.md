@@ -100,6 +100,7 @@ one action runs at a time.
 - `STS2AIAgent/Ui/AgentOverlayHost.Setup.cs` — quick setup card and bounded, cancellable model verification; the per-model test badges (updated in place when the form has unsaved edits).
 - `STS2AIAgent/Multiplayer/CompanionPlaySettings.cs` — live play configuration allowlist; preserves instance-local settings.
 - `STS2AIAgent/Game/NativeCoopLoadGuard.cs` — intercepts unsafe native loading of identified local co-op saves.
+- `STS2AIAgent/Game/GameControl.cs` — isolated game-only condition reads, individual settings and pre-dispatch state tokens; competition orchestration stays outside the game.
 - `STS2AIAgent/ModEntry.cs` — `[ModInitializer]`. Order: LocSource → GameThread → GameEventService → HttpServer → AgentRuntime → `ReflectedGameMembers.ProbeAtStartup` → overlay (skipped on the companion or headless). Shutdown runs on ProcessExit/DomainUnload.
 - `STS2AIAgent/Ui/AgentOverlayHost.cs` — overlay chrome and lifecycle: CanvasLayer install and retry until `NGame.Instance`, header, hotkey poll (ignored while a text box has focus), the 800 ms `OnProcessFrame` tick, `ToggleVisible`, `RebuildInPlace` (keeps tab, visibility, position and message drafts), `WarnOnce`.
 - `STS2AIAgent/Ui/AgentOverlayHost.SettingsSave.cs` — committing the settings form: save, add/remove endpoint and model, the dirty flag, the settings notice line.

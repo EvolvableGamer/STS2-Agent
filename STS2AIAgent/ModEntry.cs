@@ -36,6 +36,9 @@ public static class ModEntry
             // the subscription is picked up once the overlay is built.
             LocSource.Initialize();
             GameThread.Initialize();
+#if STS2_PUBLIC_23811903
+            GameControl.Install();
+#endif
             GameEventService.Instance.Start();
             HttpServer.Instance.Start();
             AgentRuntime.Instance.Initialize();

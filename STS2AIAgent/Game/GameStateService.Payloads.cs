@@ -136,6 +136,10 @@ internal sealed class GameStatePayload
     public GameOverPayload? game_over { get; init; }
 
     public object? agent_view { get; init; }
+#if STS2_PUBLIC_23811903
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? game_state_token { get; set; }
+#endif
 
     /// <summary>
     /// The exact descriptors <see cref="GameStateService.BuildStatePayload"/>'s own action-surface
@@ -254,6 +258,9 @@ internal sealed class CombatActionReadinessPayload
 
 internal sealed class RunPayload
 {
+#if STS2_PUBLIC_23811903
+    public string? act_model_id { get; init; }
+#endif
     public float card_rarity_odds_value { get; init; }
 
     public int card_shop_removals_used { get; init; }

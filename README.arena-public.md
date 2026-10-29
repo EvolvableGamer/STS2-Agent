@@ -10,6 +10,16 @@ Compilation: .NET9.0.320, 0warnings/0errors. Follow-up2026-10-29: isolated clien
 
 Game binaries, SDK and user saves are never committed. Before distributing the modified module, provide this corresponding source and AGPL license. Do not publish experimental binaries as validated releases.
 
+## Generic isolated game controls
+
+The previous ArenaPracticeSetup experiment is retired. This branch now exposes only game primitives under /game/control/info, /catalog and /setting. It has no Arena Task type, participant, match selection, scoring, upload, or named tournament profile. The external Node participant decides preparation order and sends individual seed/character/ascension/unlock/discovery settings; ordinary gameplay still uses /action. Only A0/standard is validated by this public-build profile.
+
+Control routes require a 64-hex capability in X-STS2-Game-Control and an explicitly matching isolated --clientId via STS2_GAME_ISOLATED_CLIENT_ID / STS2_GAME_CONTROL_TOKEN. Without these variables the additional controls remain disabled. Generic unlock behavior changes only after an explicit setting, not at startup. Seed setting bypasses the standard UI's intentionally unsupported SeedChanged callback using the verified property setter. Nothing changes user profiles unless the operator deliberately launches that exact isolated client.
+
+game_state_token is an opaque per-process state token, checked in the shared dispatch boundary when supplied. It is not an anti-cheat or authentication claim. info returns the game instance ID and actual game conditions privately; the Node participant filters what reaches a player. The game process does not select seeds or construct competition facts from its HTTP requests. Controlled-response persistence and coverage declarations belong to the independent Node participant.
+
+Mac integration against Arena0f8765d plus the current adapter: platform-issued seed, pure rule player, natural death at floor8,140 acknowledged actions,563 Arena events, schema9 non-abandoned history matched. An intentional platform outage left the entire terminal log local; restarting the same assignment sealed/uploaded it with unchanged Arena/source journal hashes and zero new actions. Public result is controlled-script-only, not complete engine/input coverage. Actual start response-loss and action response-loss tests use private fixtures and never replay uncertain commands. See the corresponding Arena M0 handoff for exact code/artifact fingerprints and later checks.
+
 ## MCP turn-handoff validation (2026-10-29)
 
 Native Streamable HTTP was tested with @modelcontextprotocol/client2.0.0 and the installed dsh-mcp-client0.2.0-rc.2, without a model. Initialization, discovery, ordinary actions, error envelopes and a deliberately lost action response were exercised. Native tools remain a developer surface: raw state and raw_state are available and need an external competition filter.

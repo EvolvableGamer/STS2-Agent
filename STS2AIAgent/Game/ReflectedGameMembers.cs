@@ -2,6 +2,7 @@ using System.Reflection;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Multiplayer.Game.Lobby;
+using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Nodes.Debug;
 using MegaCrit.Sts2.Core.Nodes.Debug.Multiplayer;
@@ -76,6 +77,8 @@ internal static class ReflectedGameMembers
         new(typeof(NDevConsole), "_devConsole", MemberKind.Field, false, "run_console_command"),
         new(typeof(NMultiplayerSubmenu), "StartLoad", MemberKind.Method, false, "continue_ai_teammate"),
 #if STS2_PUBLIC_23811903
+        new(typeof(SaveManager), "GenerateUnlockStateFromProgress", MemberKind.Method, false, "isolated game unlock settings"),
+        new(typeof(StartRunLobby), "Seed", MemberKind.Property, false, "isolated game seed setting"),
         new(typeof(StartRunLobby), "<MaxPlayers>k__BackingField", MemberKind.Field, false, "multiplayer_lobby.max_players"),
 #else
         new(typeof(StartRunLobby), "_maxPlayers", MemberKind.Field, false, "multiplayer_lobby.max_players"),
