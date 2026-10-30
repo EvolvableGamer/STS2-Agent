@@ -1,8 +1,8 @@
-# Experimental Arena public-build profile
+# Unified public-build bridge profile
 
 Based on upstream89d5fd3; AGPL applies to this separate checkout. This is not an Arena MIT package.
 
-Target: installed macOS arm64 engine build23811903, gamev0.107.1, SHA256e7ceb80669bfaf5c8fccabaa126ae2bb283aba514be5b5b55612579cfd285f18. Compile with DefineConstants=STS2_PUBLIC_23811903 and actual Sts2DataDir. Runtime initialization refuses a different engine hash.
+Target: installed macOS arm64 engine build23811903, gamev0.107.1, SHA256e7ceb80669bfaf5c8fccabaa126ae2bb283aba514be5b5b55612579cfd285f18. Compile with DefineConstants=STS2_PUBLIC_23811903 and actual Sts2DataDir. Runtime initialization checks an OS/architecture hash table and refuses a different engine hash. Windows x64 has an explicit empty entry and refuses initialization until a collaborator measures and reviews the real Windows engine hash. The Mac hash must never be reused for Windows.
 
 The profile maps StartRunLobbyPlayer->LobbyPlayer, RunLobby.PlayerIds->ConnectedPlayerIds, Player.CanUseOrRemovePotions->CanRemovePotions, and the lobby max-player reflection field to its public-build backing field. Original names remain on the default compilation path. Manifests lower min-game-version only with this explicitly constrained profile.
 
@@ -47,3 +47,29 @@ Settings now accept nullable `apiPort` (1..65535), shared by HTTP and native `/m
 Offline protection: `Settings.ApiPort` round-trips JSON, validates range and precedence; `HttpServerPort.*` keeps explicit-environment fallback guards. Build and test evidence is recorded in the Arena M1-G2026-10-30 report; existing StateSplit fingerprint failure is not relaxed. Windows branch is unchanged pending M1-A.
 
 The occupied-port Mac smoke additionally exposed HttpListener errno48 (EADDRINUSE). It is now included in the existing unavailable-port classification, so persisted-port collisions use the existing fallback loop. Explicit environment ports still never drift without opt-in. LoopbackListener.MacAddressInUse protects this case.
+
+
+## Unified branch: arena/public-23811903 (M1-A, 2026-10-30)
+
+Based on Mac d5663ef, not a merge of the Windows competition branch. Both old branches are unchanged. Retains the four `STS2_PUBLIC_23811903` conditional interface mappings; default upstream compilation remains separate. Build against each platform's actual engine assemblies. Do not call a Mac build a Windows build.
+
+Integrated Windows generic fixes: c42db74 snapshots the old event page before dispatch; 286619b requires native PlayerTurnPhase.Play, alongside Mac 4ae9f7d's handoff guard and existing stable-action sampling. From c4cb81a only the generic play-card choice boundary is extracted: an open selection is not settled, cannot trigger hang-recovery cancellation, and cannot roll back the accepted play counter. Selection continues through existing ordinary actions; a pending parent is not proof of completion. No Arena selection tracker, continuation endpoint, permits, bindings or fact logs are included.
+
+### Supported bridge contract vs retained upstream modules
+
+| Our bridge contract | Entry / boundary |
+| --- | --- |
+| Health, state, ordinary action/result, action discovery, SSE/data | `/health`, `/state`, `/action`, `/actions/available`, `/events/stream`, `/data/*`; retain unknown/pending semantics |
+| Native MCP | `/mcp`, enabled only through explicit mcpEnabled or `/mcp/control`; no Python proxy needed |
+| Preferred port + collision fallback | persisted apiPort; absent setting keeps 8080 legacy selection, explicit environment port precedence/strictness unchanged |
+| Isolated generic opening/settings | only `/game/control/*`; matching isolated clientId and 64-hex capability required; no Arena task/score/upload |
+| Public engine guard | `PublicBuildProfile`: Mac arm64 validated; Windows x64 missing hash refuses before initialization |
+
+Upstream game Agent/autoplay, Jev, model settings, overlay, dual-instance companion, Python sidecar MCP, screenshot and strategy surfaces remain in source. They are **outside our supported bridge interface** and do not start models, companions or screenshot work automatically. Empty settings have no models, proactive chat and dual-layer play off; native MCP itself also needs explicit opt-in. In this public build the UI/first-run guide is not installed unless the Host explicitly sets `STS2_PUBLIC_ENABLE_UPSTREAM_UI=1`. Python sidecar requires separately launching Python. Existing loopback screenshot/strategy/AI HTTP handlers remain callable on explicit request; this is not endpoint removal or a new authentication promise. Do not treat the retained modules as approved competition tools.
+
+### Validation and limits
+
+Release build: `dotnet build STS2AIAgent/STS2AIAgent.csproj -c Release -p:DefineConstants=STS2_PUBLIC_23811903 -p:Sts2DataDir=<actual platform engine directory>`.
+Offline executable suite: put the private .NET 9 SDK on PATH, then `dotnet run --project STS2AIAgent.Tests -c Release` (`dotnet test` alone does not run this executable suite). Retains both platforms' generic regression cases; Windows port errors 5/32/183/10013/10048 are fixtures on Mac. Existing `StateSplit.MovedBodiesUnchanged` stays failing with its original fingerprints; checks are not weakened. Build success is separate from this known suite failure and from runtime acceptance. Mac live evidence and Windows migration checklist are maintained in Arena's M1-A delivery documents. Windows on-device and cross-platform same-seed/full-run parity remain unverified. No native binaries are published by this branch task.
+
+Offline run for this slice: 1043 PASS / 1 existing StateSplit failure; Release 0 warnings / 0 errors against the actual Mac engine. `StateSplit` test source and fingerprint table are byte-identical to d5663ef; its existing public-compatibility differences are not hidden, and the new Play-phase change also remains visible to that check. The previously passing Mac handoff case plus the original Windows event/native-Play cases pass. Windows fixture success is not Windows runtime acceptance.

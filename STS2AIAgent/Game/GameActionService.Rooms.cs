@@ -520,11 +520,15 @@ internal static partial class GameActionService
             });
         }
 
+        // Native selection may synchronously replace the page and options.
+        var previousEventId = eventModel.Id?.Entry;
+        var previousOptionSignature = BuildEventOptionSignature(eventModel);
+        var previousOptionCount = options.Count;
         RunManager.Instance.EventSynchronizer.ChooseLocalOption(request.option_index.Value);
         var stableOption = await WaitForEventOptionTransitionAsync(
-            eventModel.Id?.Entry,
-            BuildEventOptionSignature(eventModel),
-            options.Count,
+            previousEventId,
+            previousOptionSignature,
+            previousOptionCount,
             TimeSpan.FromSeconds(10));
 
         return new ActionResponsePayload

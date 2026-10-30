@@ -4,6 +4,18 @@ namespace STS2AIAgent.Tests;
 
 internal static class CombatTurnReadinessPolicyTests
 {
+    public static void RejectsTurnSetupEvenWithPartiallyDrawnHand()
+    {
+        Assert.False(CombatTurnReadinessPolicy.IsPlayerPlayPhase(true, false));
+        Assert.False(CombatTurnReadinessPolicy.IsPlayerPlayPhase(false, true));
+        Assert.True(CombatTurnReadinessPolicy.IsPlayerPlayPhase(true, true));
+    }
+    public static void ReadinessGateUsesNativePlayPhase()
+    {
+        var source=AgentSourceFixture.Read("STS2AIAgent/Game/GameStateService.Combat.cs");
+        Assert.True(source.Contains("me?.PlayerCombatState?.Phase == PlayerTurnPhase.Play",StringComparison.Ordinal),
+            "Combat readiness must check the native player Play phase before declaring actions usable.");
+    }
     public static void RejectsPartialDrawDuringTurnHandoff()
     {
         Assert.False(CombatTurnReadinessPolicy.IsLocallyReady(4, 2, 0, true, endingTurn: true));

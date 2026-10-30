@@ -5,6 +5,19 @@ namespace STS2AIAgent.Tests;
 
 internal static class LoopbackListenerTests
 {
+    public static void WindowsOccupiedAndReservedPortsFallBack()
+    {
+        foreach (var error in new[] { 5, 32, 183, 10013, 10048 })
+        {
+            var selected = LoopbackListener.Select(19080, true, port =>
+            {
+                if (port == 19080) throw new HttpListenerException(error);
+                return port;
+            }, () => throw new Exception("Unexpected dynamic selection"), () => throw new Exception("Unexpected wait"));
+            Assert.Equal(19081, selected.Port);
+        }
+    }
+
     public static void MacAddressInUseFallsBack()
     {
         var selected = LoopbackListener.Select(19080, true, port =>

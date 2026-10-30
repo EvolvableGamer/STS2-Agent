@@ -145,7 +145,11 @@ internal static partial class GameStateService
 
         var actionsSettled = !actionQueueHasExecutingAction && runningAction == null && readyAction == null;
         var localTurnReady = me != null && IsLocalCombatTurnReady(me, room);
-        var playerActionPhase = IsPlayerActionPhase(combatState, me);
+        // Turn membership also includes drawing and auto-pre-play. Keep the Mac handoff
+        // guard in IsLocalCombatTurnReady and require the native player's Play phase here.
+        var playerActionPhase = CombatTurnReadinessPolicy.IsPlayerPlayPhase(
+            IsPlayerActionPhase(combatState, me),
+            me?.PlayerCombatState?.Phase == PlayerTurnPhase.Play);
         var snapshotStable = false;
         string reason;
 

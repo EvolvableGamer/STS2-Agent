@@ -380,7 +380,7 @@ internal static partial class GameActionService
         else if (cardType == "Skill") SkillsPlayedThisTurn++;
 
         var stable = await WaitForPlayCardTransitionAsync(card, TimeSpan.FromSeconds(12));
-        if (!stable)
+        if (!stable && !IsPlayCardAwaitingPlayerInput())
         {
             for (var attempt = 0; attempt < 8; attempt++)
             {
@@ -394,7 +394,7 @@ internal static partial class GameActionService
             }
         }
 
-        if (CardPlayCounterPolicy.ShouldRollBack(
+        if (!IsPlayCardAwaitingPlayerInput() && CardPlayCounterPolicy.ShouldRollBack(
                 playSettled: stable,
                 combatInProgress: CombatManager.Instance.IsInProgress,
                 cardStillInHand: card.Pile?.Type == PileType.Hand))
@@ -510,6 +510,7 @@ internal static partial class GameActionService
 
     private static bool IsPlayCardStable(CardModel card)
     {
+        if (IsPlayCardAwaitingPlayerInput()) return false;
         if (!CombatManager.Instance.IsInProgress)
         {
             return true;

@@ -529,3 +529,5 @@ Tools are **synchronous**; don't make them async. Wire keys stay spelled the way
 
 - `STS2AIAgent/Game/GameControl.Custom.cs` — isolated native Custom menu, epoch unlock and start receipts.
 - `STS2AIAgent/Game/GameStartCommandStore.cs` — private durable game command IDs, no competition task.
+
+- `STS2AIAgent/Game/PublicBuildProfile.cs` — platform/architecture engine hash allowlist; missing Windows hash refuses initialization.

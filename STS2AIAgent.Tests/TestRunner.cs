@@ -505,6 +505,13 @@ internal static class TestRunner
         yield return ("GameStart.IntentRecovery", () => Task.Run(GameStartCommandStoreTests.IntentSurvivesReconstructionWithoutReplay));
         yield return ("GameStart.TornResult", () => Task.Run(GameStartCommandStoreTests.TornResultAndUnsafeIdFailClosed));
         yield return ("CombatReadiness.RejectsHandoff", () => Task.Run(CombatTurnReadinessPolicyTests.RejectsPartialDrawDuringTurnHandoff));
+        yield return ("EventOptionTransition.OldPageBeforeDispatch", () => Task.Run(EventOptionTransitionWiringTests.CapturesOldPageBeforeDispatch));
+        yield return ("CombatReadiness.NativePlayWiring", () => Task.Run(CombatTurnReadinessPolicyTests.ReadinessGateUsesNativePlayPhase));
+        yield return ("CombatReadiness.RequiresNativePlay", () => Task.Run(CombatTurnReadinessPolicyTests.RejectsTurnSetupEvenWithPartiallyDrawnHand));
+        yield return ("PublicBuild.PlatformHashes", () => Task.Run(PublicBuildProfileTests.PlatformHashesFailClosed));
+        yield return ("PublicBuild.GuardBeforeInit", () => Task.Run(PublicBuildProfileTests.ModValidatesBeforeInitializing));
+        yield return ("PlayCard.NestedChoiceBoundary", () => Task.Run(PublicBuildProfileTests.NestedChoiceNeverCompletesOrCancelsParent));
+        yield return ("LoopbackListener.WindowsCollision", () => Task.Run(LoopbackListenerTests.WindowsOccupiedAndReservedPortsFallBack));
         yield return ("CombatReadiness.RejectsPreTurn", () => Task.Run(CombatTurnReadinessPolicyTests.RejectsPreTurnEmptyHandEvenWhenButtonLooksReady));
         yield return ("CombatReadiness.KeepsOpeningGuard", () => Task.Run(CombatTurnReadinessPolicyTests.KeepsOpeningDrawGuardWhenNoNativeReadyEvidenceExists));
         yield return ("CombatReadiness.AcceptsTurnEvidence", () => Task.Run(CombatTurnReadinessPolicyTests.AcceptsCardsOrRecordedPlayAsTurnEvidence));
