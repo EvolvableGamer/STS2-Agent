@@ -27,7 +27,7 @@ internal sealed partial class NativeMcpServer
             case "health_check":
                 return JsonSerializer.Serialize(_health(), JsonOptions);
             case "get_game_state":
-                return await _bridge.GetCompactStateJsonAsync(cancellationToken);
+                return NativeMcpState.Project(await _bridge.GetCompactStateJsonAsync(cancellationToken));
             case "get_raw_game_state":
                 return await _bridge.GetRawStateJsonAsync(cancellationToken);
             case "get_available_actions":
@@ -207,10 +207,10 @@ internal sealed partial class NativeMcpServer
         var state = ReadObjectOrEmpty(snapshot.RootElement, "state");
         return JsonSerializer.Serialize(new
         {
-            state,
+            state = DeserializeOrEmpty(NativeMcpState.Project(state.GetRawText())),
             available_actions = ReadArrayOrEmpty(snapshot.RootElement, "available_actions"),
             scene_guidance = BuildSceneGuidance(ScreenOfState(state))
-        }, JsonOptionsKeepingNulls);
+        }, NativeMcpState.Json);
     }
 
     /// <summary>The one guidance object both guidance-shaped answers are built from.</summary>
@@ -245,9 +245,9 @@ internal sealed partial class NativeMcpServer
         {
             actionable,
             timeout_seconds = timeout.TotalSeconds,
-            state = DeserializeOrEmpty(stateJson),
+            state = DeserializeOrEmpty(ReadBool(arguments, "raw_state") ? stateJson : NativeMcpState.Project(stateJson)),
             actions = DeserializeOrEmptyArray(actionsJson)
-        }, JsonOptions);
+        }, ReadBool(arguments, "raw_state") ? JsonOptions : NativeMcpState.Json);
     }
 
     private async Task<string> ExecuteActAsync(JsonElement arguments, CancellationToken cancellationToken)
@@ -341,22 +341,21 @@ internal sealed partial class NativeMcpServer
         if (!ActIndexValidator.IsUnsettled(result) ||
             IsPendingPlayCardChoice(action, ReadObjectOrEmpty(DeserializeOrEmpty(result), "state")))
         {
-            return result;
+            return NativeMcpState.Receipt(result, rawState);
         }
 
         var settled = await _bridge.WaitUntilActionableAsync(TimeSpan.FromSeconds(20), cancellationToken);
-        var latest = await _bridge.GetCompactStateJsonAsync(cancellationToken);
+        var latest = rawState
+            ? await _bridge.GetRawStateJsonAsync(cancellationToken)
+            : await _bridge.GetCompactStateJsonAsync(cancellationToken);
         var latestState = DeserializeOrEmpty(latest);
-        // Also cover a choice that appeared only during the bounded transition wait.
         var completed = settled && !IsPendingPlayCardChoice(action, latestState);
-        return JsonSerializer.Serialize(new
-        {
-            action,
-            status = completed ? "completed" : "pending",
-            stable = completed,
-            previous = DeserializeOrEmpty(result),
-            state = latestState
-        }, JsonOptions);
+        var receipt = System.Text.Json.Nodes.JsonNode.Parse(result)!.AsObject();
+        receipt.Remove("previous");
+        receipt["status"] = completed ? "completed" : "pending";
+        receipt["stable"] = completed;
+        receipt["state"] = System.Text.Json.Nodes.JsonNode.Parse(latest);
+        return NativeMcpState.Receipt(receipt.ToJsonString(), rawState);
     }
 
     private static bool IsPendingPlayCardChoice(string action, JsonElement state) =>

@@ -52,6 +52,7 @@ internal static class SettingsClone
             McpServerPath = source.McpServerPath,
             McpPort = source.McpPort,
             McpEnabled = source.McpEnabled,
+            McpFullTools = source.McpFullTools,
             MaxSessionTokens = source.MaxSessionTokens,
             MaxSessionRequests = source.MaxSessionRequests,
             LlmRequestTimeoutSeconds = source.LlmRequestTimeoutSeconds,

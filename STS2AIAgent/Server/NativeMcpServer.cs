@@ -64,6 +64,14 @@ internal sealed partial class NativeMcpServer
     private readonly Func<(bool DualLayer, bool JevConfigured)>? _dualLayerStatus;
     private readonly string _version;
     private bool _enabled;
+    private bool _fullTools;
+    public void SetFullTools(bool enabled) { lock (_gate) { _fullTools = enabled; } }
+    internal const string ToolInstructions = "Tools for the local Slay the Spire 2 game. Use only when the user asks to play; read get_game_state first. Gameplay guidance is available at sts2://skill/play-contract.";
+    private static readonly HashSet<string> PlayTools = new(StringComparer.Ordinal)
+    {
+        "health_check", "get_game_state", "get_raw_game_state", "get_available_actions",
+        "get_game_data_item", "get_relevant_game_data", "wait_until_actionable", "act"
+    };
     private string? _endpointUrl;
     private string? _sessionId;
 
@@ -426,7 +434,7 @@ internal sealed partial class NativeMcpServer
                 version = _version,
                 title = "STS2 AI Agent"
             },
-            instructions = PlayPrompt.PlaySystem
+            instructions = ToolInstructions
         };
     }
 
@@ -464,14 +472,14 @@ internal sealed partial class NativeMcpServer
         };
     }
 
-    private static object[] ListTools()
+    private object[] ListTools()
     {
         return AgentTools.Mcp.Select(static tool => (object)new
         {
             name = tool.Name,
             description = tool.Description,
             inputSchema = tool.Parameters
-        }).ToArray();
+        }).Where((_, index) => _fullTools || PlayTools.Contains(AgentTools.Mcp[index].Name)).ToArray();
     }
 
     private async Task<object> CallToolAsync(JsonElement args, CancellationToken cancellationToken)

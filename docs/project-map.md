@@ -531,3 +531,5 @@ Tools are **synchronous**; don't make them async. Wire keys stay spelled the way
 - `STS2AIAgent/Game/GameStartCommandStore.cs` — private durable game command IDs, no competition task.
 
 - `STS2AIAgent/Game/PublicBuildProfile.cs` — platform/architecture engine hash allowlist; missing Windows hash refuses initialization.
+
+- `STS2AIAgent/Server/NativeMcpState.cs` — native-only scene state projection, JSON budget and latest-state receipts; HTTP unchanged.

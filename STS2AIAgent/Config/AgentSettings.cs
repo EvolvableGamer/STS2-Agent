@@ -62,6 +62,8 @@ internal sealed class AgentSettings
 
     public bool McpEnabled { get; set; }
 
+    public bool McpFullTools { get; set; }
+
     /// <summary>Preferred loopback HTTP/native MCP port. Null preserves legacy port selection.</summary>
     public int? ApiPort { get; set; }
 

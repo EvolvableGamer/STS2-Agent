@@ -61,9 +61,11 @@ internal static class McpServiceTests
         Assert.Equal("9.9.9", info.GetProperty("version").GetString());
         Assert.Equal("2025-03-26", root.GetProperty("result").GetProperty("protocolVersion").GetString());
         var instructions = root.GetProperty("result").GetProperty("instructions").GetString();
-        Assert.Contains("continue_game_over", instructions);
+        Assert.True(instructions!.Length <= 300);
+        Assert.False(instructions.Contains("You are", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("user", instructions);
         Assert.Contains("get_game_state", instructions);
-        Assert.Contains("same play contract as the STS2 MCP player skill", instructions);
+        Assert.False(instructions.Contains(PlayPrompt.PlayContract, StringComparison.Ordinal));
     }
 
     public static async Task ToolsList_IncludesHealthAndAct()
@@ -139,6 +141,26 @@ internal static class McpServiceTests
         Assert.Equal("completed", data.GetProperty("status").GetString());
         Assert.True(data.GetProperty("stable").GetBoolean());
         Assert.Equal(1, bridge.ActCalls);
+    }
+
+    public static async Task NativeListProfilesAndLatestReceipt()
+    {
+        var server = CreateServer();
+        var rpc = await Rpc(server, """{"jsonrpc":"2.0","id":90,"method":"tools/list"}""");
+        var names = rpc.GetProperty("result").GetProperty("tools").EnumerateArray().Select(x => x.GetProperty("name").GetString()).ToArray();
+        Assert.False(names.Contains("get_planner_briefing"));
+        Assert.False(names.Contains("get_decision_log"));
+        Assert.True(names.Contains("get_raw_game_state"));
+        server.SetFullTools(true);
+        var full = await Rpc(server, """{"jsonrpc":"2.0","id":91,"method":"tools/list"}""");
+        Assert.Equal(AgentTools.Mcp.Count, full.GetProperty("result").GetProperty("tools").GetArrayLength());
+        var bridge = new FakeMcpBridge { ActResult = """{"action":"play_card","status":"pending","stable":false,"message":"queued","state":{"screen":"COMBAT","map":{"nodes":[1]}}}""" };
+        var acted = await Rpc(CreateServer(bridge: bridge), """{"jsonrpc":"2.0","id":92,"method":"tools/call","params":{"name":"act","arguments":{"action":"play_card","card_index":0}}}""");
+        var data = JsonDocument.Parse(acted.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!).RootElement;
+        Assert.False(data.TryGetProperty("previous", out _));
+        Assert.Equal("queued", data.GetProperty("message").GetString());
+        Assert.True(data.GetProperty("stable").GetBoolean());
+        Assert.True(data.GetRawText().Length < 8192);
     }
 
     public static async Task ToolsCall_DecisionLogRecordsAcceptedActOnly()

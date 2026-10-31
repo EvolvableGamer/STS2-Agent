@@ -681,6 +681,8 @@ internal static class TestRunner
         yield return ("NativeMcp.SkillResources", McpServiceTests.Resources_ExposeSharedPlaySkill);
         yield return ("NativeMcp.PendingCardChoice", McpServiceTests.PendingPlayCardChoiceIsNotCompletedByActionability);
         yield return ("NativeMcp.PendingOrdinarySettle", McpServiceTests.PendingOrdinaryActCanStillSettle);
+        yield return ("NativeMcp.ListProfilesLatest", McpServiceTests.NativeListProfilesAndLatestReceipt);
+        yield return ("NativeMcp.StateBudget", () => Task.Run(NativeMcpStateTests.SceneFidelityAndBudget));
         yield return ("NativeMcp.ToolsCall", McpServiceTests.ToolsCall_GetGameStateAndAct);
         yield return ("NativeMcp.Notification", McpServiceTests.Notification_Returns202);
         yield return ("NativeMcp.ClientConfig", McpServiceTests.ClientConfig_UsesEnabledUrl);

@@ -8,6 +8,7 @@
     <AssemblyName>STS2AIAgent.Tests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../STS2AIAgent/Server/NativeMcpState.cs" Link="Server/NativeMcpState.cs" />
     <Compile Include="../STS2AIAgent/Game/PublicBuildProfile.cs" Link="Game/PublicBuildProfile.cs" />
     <Compile Include="../STS2AIAgent/Game/GameStartCommandStore.cs" Link="Game/GameStartCommandStore.cs" />
     <Compile Include="../STS2AIAgent/Multiplayer/CompanionSettingsSynchronizer.cs" Link="Multiplayer/CompanionSettingsSynchronizer.cs" />

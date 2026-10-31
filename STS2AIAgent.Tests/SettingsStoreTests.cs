@@ -37,6 +37,7 @@ internal static class SettingsStoreTests
         settings.AttachScreenshotInChat = true;
         settings.McpServerPath = @"C:\mods\mcp_server";
         settings.McpEnabled = true;
+        settings.McpFullTools = true;
         settings.HasSeenFirstRunGuide = true;
         settings.ProactiveChatEnabled = true;
         settings.ProactiveChatTone = ProactiveChatTones.Terse;
@@ -55,6 +56,7 @@ internal static class SettingsStoreTests
         Assert.True(loaded.AttachScreenshotInChat);
         Assert.Equal(@"C:\mods\mcp_server", loaded.McpServerPath);
         Assert.True(loaded.McpEnabled);
+        Assert.True(loaded.McpFullTools);
         Assert.True(loaded.HasSeenFirstRunGuide);
         Assert.Equal("verified", ModelRoleProbe.Current(loaded, ModelRoleNames.Play).Status);
         Assert.True(loaded.ProactiveChatEnabled);
@@ -286,6 +288,7 @@ internal static class SettingsStoreTests
         source.ProactiveChatTone = ProactiveChatTones.Terse;
         source.AttachScreenshotInChat = true;
         source.McpEnabled = true;
+        source.McpFullTools = true;
         source.McpPort = 9001;
         source.MaxSessionTokens = 1234;
         source.MaxSessionRequests = 7;
@@ -312,6 +315,7 @@ internal static class SettingsStoreTests
         Assert.Equal(ProactiveChatTones.Terse, clone.ProactiveChatTone);
         Assert.True(clone.AttachScreenshotInChat);
         Assert.True(clone.McpEnabled);
+        Assert.True(clone.McpFullTools);
         Assert.Equal(9001, clone.McpPort);
         Assert.Equal(1234, clone.MaxSessionTokens);
         Assert.Equal(7, clone.MaxSessionRequests);

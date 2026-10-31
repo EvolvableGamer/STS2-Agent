@@ -1085,6 +1085,7 @@ internal sealed partial class AgentRuntime
     {
         var enabled = Settings.McpEnabled;
         var url = McpEndpointUrl();
+        NativeMcpServer.Runtime?.SetFullTools(Settings.McpFullTools);
         NativeMcpServer.Runtime?.SetEnabled(enabled, url);
         _mcpStatus = enabled
             ? Loc.T("MCP 已打开。把下面的地址或配置贴进外部客户端。")
