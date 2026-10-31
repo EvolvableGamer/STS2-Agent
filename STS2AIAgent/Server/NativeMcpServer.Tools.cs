@@ -336,22 +336,31 @@ internal sealed partial class NativeMcpServer
             // The act's own pre-action snapshot names the run, so this surface needs no runtime
             // singleton to attribute the decision to it.
             runId: RunIdOf(state.GetRawText()));
-        if (!ActIndexValidator.IsUnsettled(result))
+        // A choice is actionable, but its parent card has not finished. Preserve the
+        // dispatcher's pending receipt rather than waiting for another decision window.
+        if (!ActIndexValidator.IsUnsettled(result) ||
+            IsPendingPlayCardChoice(action, ReadObjectOrEmpty(DeserializeOrEmpty(result), "state")))
         {
             return result;
         }
 
         var settled = await _bridge.WaitUntilActionableAsync(TimeSpan.FromSeconds(20), cancellationToken);
         var latest = await _bridge.GetCompactStateJsonAsync(cancellationToken);
+        var latestState = DeserializeOrEmpty(latest);
+        // Also cover a choice that appeared only during the bounded transition wait.
+        var completed = settled && !IsPendingPlayCardChoice(action, latestState);
         return JsonSerializer.Serialize(new
         {
             action,
-            status = settled ? "completed" : "pending",
-            stable = settled,
+            status = completed ? "completed" : "pending",
+            stable = completed,
             previous = DeserializeOrEmpty(result),
-            state = DeserializeOrEmpty(latest)
+            state = latestState
         }, JsonOptions);
     }
+
+    private static bool IsPendingPlayCardChoice(string action, JsonElement state) =>
+        action == "play_card" && ReadString(state, "screen") == "CARD_SELECTION";
 
     /// <summary>
     /// The <c>run_id</c> of a <c>/state</c> payload, or null when it is absent or is the mod's

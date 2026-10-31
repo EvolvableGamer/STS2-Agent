@@ -112,6 +112,35 @@ internal static class McpServiceTests
         Assert.Equal(1, bridge.ActCalls);
     }
 
+    public static async Task PendingPlayCardChoiceIsNotCompletedByActionability()
+    {
+        foreach (var initialScreen in new[] { "CARD_SELECTION", "COMBAT" })
+        {
+            var bridge = new FakeMcpBridge
+            {
+                ActResult = JsonSerializer.Serialize(new { action = "play_card", status = "pending", stable = false, state = new { screen = initialScreen } }),
+                AfterActStateJson = """{"screen":"CARD_SELECTION","available_actions":["select_deck_card"]}"""
+            };
+            var server = CreateServer(bridge: bridge);
+            var rpc = await Rpc(server, """{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"act","arguments":{"action":"play_card","card_index":0}}}""");
+            var data = JsonDocument.Parse(rpc.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!).RootElement;
+            Assert.Equal("pending", data.GetProperty("status").GetString());
+            Assert.False(data.GetProperty("stable").GetBoolean());
+            Assert.Equal(1, bridge.ActCalls);
+            Assert.Equal(initialScreen == "CARD_SELECTION" ? 0 : 1, bridge.WaitCalls);
+        }
+    }
+
+    public static async Task PendingOrdinaryActCanStillSettle()
+    {
+        var bridge = new FakeMcpBridge { ActResult = """{"action":"play_card","status":"pending","stable":false,"state":{"screen":"COMBAT"}}""" };
+        var rpc = await Rpc(CreateServer(bridge: bridge), """{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"act","arguments":{"action":"play_card","card_index":0}}}""");
+        var data = JsonDocument.Parse(rpc.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!).RootElement;
+        Assert.Equal("completed", data.GetProperty("status").GetString());
+        Assert.True(data.GetProperty("stable").GetBoolean());
+        Assert.Equal(1, bridge.ActCalls);
+    }
+
     public static async Task ToolsCall_DecisionLogRecordsAcceptedActOnly()
     {
         var bridge = new FakeMcpBridge();
@@ -710,6 +739,9 @@ internal static class McpServiceTests
     private sealed class FakeMcpBridge : IGameBridge
     {
         public int ActCalls { get; private set; }
+        public int WaitCalls { get; private set; }
+        public string? ActResult { get; init; }
+        public string? AfterActStateJson { get; init; }
 
         public int RawStateCalls { get; private set; }
 
@@ -779,7 +811,8 @@ internal static class McpServiceTests
                 throw ActFailure;
             }
 
-            return Task.FromResult("""{"action":"play_card","status":"completed","stable":true}""");
+            if (AfterActStateJson != null) CompactStateJson = AfterActStateJson;
+            return Task.FromResult(ActResult ?? """{"action":"play_card","status":"completed","stable":true}""");
         }
 
         public Task<string> GetGameDataItemJsonAsync(string collection, string itemId, CancellationToken cancellationToken)
@@ -791,7 +824,7 @@ internal static class McpServiceTests
         public Task<string> GetRelevantGameDataJsonAsync(string collection, IReadOnlyList<string> itemIds, CancellationToken cancellationToken)
             => Task.FromResult("""{"STRIKE":{"id":"STRIKE","name":"Strike"}}""");
 
-        public Task<bool> WaitUntilActionableAsync(TimeSpan timeout, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task<bool> WaitUntilActionableAsync(TimeSpan timeout, CancellationToken cancellationToken) { WaitCalls++; return Task.FromResult(true); }
 
         public Task<byte[]?> CaptureScreenshotJpegAsync(CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
     }
